@@ -5,6 +5,8 @@ import Gen._;
 import Arbitrary._;
 import Prop._;
 
+import scala.collection._;
+
 import Operations._;
 import Instances._;
 import TupleInstances._;
@@ -37,6 +39,11 @@ object BinaryTests extends Application{
     new Arbitrary[Array[T]] {
       def getArbitrary = arbitrary[List[T]] map ((_.toArray))
     }
+
+  implicit def arbitraryMap[K, V](arb : Arb[immutable.Map[K, V]])(implicit arbK : Arb[K] => Arbitrary[K], arbV : Arb[V] => Arbitrary[V]) : Arbitrary[immutable.Map[K, V]]=
+    new Arbitrary[immutable.Map[K, V]]{
+    def getArbitrary = arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x);
+  }
 
   println("Primitives");
   testBinaryProperties[Byte]("Byte");
@@ -76,4 +83,10 @@ object BinaryTests extends Application{
   testBinaryTypePreservesArrayEquality[Option[Byte]]("String");
   testBinaryTypePreservesArrayEquality[Byte]("String");
   testBinaryTypePreservesArrayEquality[(Int, Int)]("String");
+
+  println
+  println("Maps");
+  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
+  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Option[String], Int]");
+  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[List[Int], String]");
 }
