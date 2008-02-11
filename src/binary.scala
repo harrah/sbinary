@@ -56,7 +56,6 @@ object Operations{
   
   def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = read[T](new ByteArrayInputStream(array));
 }
-
 object Instances{
   import Operations._;
   import TupleInstances._;
