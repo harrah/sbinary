@@ -48,6 +48,8 @@ object Operations{
     case y => new DataInputStream(y);
   }
  
+  implicit def fileByName(name : String) : File = new File(name);
+
   /**
    * Use an implicit Binary[T] to read type T from the DataInput.
    */ 
@@ -65,10 +67,32 @@ object Operations{
   }
   
   def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = read[T](new ByteArrayInputStream(array));
+
+  def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
+    val raf = new RandomAccessFile(file, "rw");
+    try{
+      write[T](t)(raf);}
+    finally{
+      raf.close(); }
+  }
+
+  def fromFile[T](file : File)(implicit bin : Binary[T]) = {
+    val raf = new RandomAccessFile(file, "rw");
+    try{
+      read[T](raf);}
+    finally{
+      raf.close(); }
+  }
+  
 }
 object Instances{
   import Operations._;
   import TupleInstances._;
+
+  implicit object UnitIsBinary extends Binary[Unit]{
+    def reads(stream : DataInput) = ();
+    def writes(t : Unit)(stream : DataOutput) = 0;
+  }
 
   implicit object StringIsBinary extends Binary[String]{
     def reads(stream : DataInput) = stream.readUTF();

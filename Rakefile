@@ -28,7 +28,7 @@ task :default => :compile
 task :generate do
   if (!File.exists?(GENERATED_SRC)) then
     mkdir_p GENERATED_SRC;
-    sh "#{FMPP} -S #{TEMPLATES} -O #{GENERATED_SRC}"
+    sh "#{FMPP} --ignore-temporary-files -S #{TEMPLATES} -O #{GENERATED_SRC}"
   end
 end
 

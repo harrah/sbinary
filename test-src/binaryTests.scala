@@ -6,7 +6,6 @@ import Arbitrary._;
 import Prop._;
 
 import scala.collection._;
-
 import Operations._;
 import Instances._;
 import TupleInstances._;
@@ -49,6 +48,10 @@ object BinaryTests extends Application{
     })    
   }
 
+  implicit def arbitraryUnit(x : Arb[Unit]) = new Arbitrary[Unit]{
+    def getArbitrary = value(() => ());
+  }
+
   implicit def arbitraryArray[T](x: Arb[Array[T]])(implicit arb : Arb[T] => Arbitrary[T]): Arbitrary[Array[T]] =
     new Arbitrary[Array[T]] {
       def getArbitrary = arbitrary[List[T]] map ((_.toArray))
@@ -71,6 +74,9 @@ object BinaryTests extends Application{
   // testBinaryProperties[Float]("Float");
 
   println
+  testBinaryProperties[Unit]("Unit");
+
+  println
   testBinaryProperties[String]("String")
 
   println ("Tuples")
@@ -89,6 +95,7 @@ object BinaryTests extends Application{
   testBinaryProperties[List[String]]("List[String]");
   testBinaryProperties[List[(String, Int)]]("List[(String, Int)]");
   testBinaryProperties[List[Option[Int]]]("List[Option[Int]]");
+  testBinaryProperties[List[Unit]]("List[Unit]");
 
   println
   println("Arrays");
