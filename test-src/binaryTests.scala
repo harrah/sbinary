@@ -31,8 +31,22 @@ object BinaryTests extends Application{
 
   def testBinaryProperties[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
     testBinaryTypePreservesEquality[T](name);
+    testLength[T];
 //    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
 //    testBinaryTypePreservesArrayEquality[Array[T]]("Array[Array[" + name + "]]");
+  }
+
+  def arrayBinaryProperties[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
+    testBinaryTypePreservesArrayEquality[T](name);
+    testLength[Array[T]];
+//    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
+  }
+
+  def testLength[T](implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
+    test((x : T) => {
+      val stream = new java.io.ByteArrayOutputStream;
+      write[T](x)(stream) == stream.toByteArray.length     
+    })    
   }
 
   implicit def arbitraryArray[T](x: Arb[Array[T]])(implicit arb : Arb[T] => Arbitrary[T]): Arbitrary[Array[T]] =
@@ -60,6 +74,7 @@ object BinaryTests extends Application{
   testBinaryProperties[String]("String")
 
   println ("Tuples")
+  testBinaryProperties[(Int, Int, Int)]("(Int, Int, Int)");
   testBinaryProperties[(String, Int, String)]("(String, Int, String)")
   testBinaryProperties[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
 
@@ -77,12 +92,12 @@ object BinaryTests extends Application{
 
   println
   println("Arrays");
-  testBinaryTypePreservesArrayEquality[String]("String");
-  testBinaryTypePreservesArrayEquality[Array[String]]("Array[String]");
-  testBinaryTypePreservesArrayEquality[List[Int]]("List[Int]");
-  testBinaryTypePreservesArrayEquality[Option[Byte]]("String");
-  testBinaryTypePreservesArrayEquality[Byte]("String");
-  testBinaryTypePreservesArrayEquality[(Int, Int)]("String");
+  arrayBinaryProperties[String]("String");
+  arrayBinaryProperties[Array[String]]("Array[String]");
+  arrayBinaryProperties[List[Int]]("List[Int]");
+  arrayBinaryProperties[Option[Byte]]("Option[Byte]");
+  arrayBinaryProperties[Byte]("Byte");
+  arrayBinaryProperties[(Int, Int)]("(Int, Int)");
 
   println
   println("Maps");

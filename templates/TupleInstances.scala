@@ -18,11 +18,10 @@ object TupleInstances{
         read[T${j}](input) <#if i != j>,</#if>
     </#list>)
 
-      def writes(tuple : ${typeName})(output : DataOutput) = {
-      <#list 1..i as j>
-        write(tuple._${j})(output);
-      </#list>
-      }
+      def writes(tuple : ${typeName})(output : DataOutput) = 
+      <#list 1..i as j>write(tuple._${j})(output) <#if i !=j> + </#if>
+      </#list>;
+      
     }
 </#list>
 }

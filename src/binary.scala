@@ -72,42 +72,74 @@ object Instances{
 
   implicit object StringIsBinary extends Binary[String]{
     def reads(stream : DataInput) = stream.readUTF();
-    def writes(t : String)(stream : DataOutput) = stream.writeUTF(t);
+    def writes(t : String)(stream : DataOutput) = { 
+      stream.writeUTF(t);
+
+      // Note that this duplicates some work done in the writing
+      // logic. Sigh. Might want to add pattern matching so we can
+      // avoid this duplication in common cases - e.g. DataOutputStream
+      // and RandomAccessFile.
+      t.foldLeft(2)((i, c) => 
+        if ((c >= 0x0001) && (c <= 0x007F)) i + 1
+        else if (c > 0x07FF) i + 3
+        else i + 2)
+    }
   }
 
   implicit object ByteIsBinary extends Binary[Byte]{
     def reads(stream : DataInput) = stream.readByte();
-    def writes(t : Byte)(stream : DataOutput) = stream.writeByte(t);
+    def writes(t : Byte)(stream : DataOutput) = {
+      stream.writeByte(t);
+      Sizes.BYTE;
+    }
   }
 
   implicit object CharIsBinary extends Binary[Char]{
     def reads(stream : DataInput) = stream.readChar();
-    def writes(t : Char)(stream : DataOutput) = stream.writeChar(t);
+    def writes(t : Char)(stream : DataOutput) = {
+      stream.writeChar(t);
+      Sizes.CHAR;
+    }
   }
 
   implicit object ShortIsBinary extends Binary[Short]{
     def reads(stream : DataInput) = stream.readShort();
-    def writes(t : Short)(stream : DataOutput) = stream.writeShort(t);
+    def writes(t : Short)(stream : DataOutput) = {
+      stream.writeShort(t);
+      Sizes.SHORT;
+    }
   }
 
   implicit object IntIsBinary extends Binary[Int]{
     def reads(stream : DataInput) = stream.readInt();
-    def writes(t : Int)(stream : DataOutput) = stream.writeInt(t);
+    def writes(t : Int)(stream : DataOutput) = {
+      stream.writeInt(t);
+      Sizes.INT;
+    }
   }
 
   implicit object LongIsBinary extends Binary[Long]{
     def reads(stream : DataInput) = stream.readLong();
-    def writes(t : Long)(stream : DataOutput) = stream.writeLong(t);
+    def writes(t : Long)(stream : DataOutput) = {
+      stream.writeLong(t);
+      Sizes.LONG;
+    }
   }
 
   implicit object FloatIsBinary extends Binary[Float]{
     def reads(stream : DataInput) = stream.readFloat();
-    def writes(t : Float)(stream : DataOutput) = stream.writeFloat(t);
+    def writes(t : Float)(stream : DataOutput) = {
+      stream.writeFloat(t);
+      Sizes.FLOAT;
+    }
   }
 
   implicit object DoubleIsBinary extends Binary[Double]{
     def reads(stream : DataInput) = stream.readDouble();
-    def writes(t : Double)(stream : DataOutput) = stream.writeDouble(t);
+    def writes(t : Double)(stream : DataOutput) = {
+      stream.writeDouble(t);
+      Sizes.DOUBLE;
+    }
   }
 
   implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = new Binary[Array[T]]{
@@ -122,9 +154,7 @@ object Instances{
 
     def writes(ts : Array[T])(stream : DataOutput) = {
       write(ts.length)(stream);
-      for (t <- ts){
-        write(t)(stream);
-      }
+      ts.foldLeft(Sizes.INT)((i, t) => i + write(t)(stream));
     }
   }
 
@@ -140,9 +170,7 @@ object Instances{
 
     def writes(ts : List[T])(stream : DataOutput) = {
       write(ts.length)(stream);
-      for (t <- ts){
-        write(t)(stream);
-      }
+      ts.foldLeft(Sizes.INT)((i, t) => i + write(t)(stream));
     }
   }
 
@@ -158,8 +186,8 @@ object Instances{
     }
 
     def writes(s : Option[S])(stream : DataOutput) = s match {
-      case Some(x) => { stream.writeByte(0x1); write(x)(stream) }
-      case None => { stream.writeByte(0x0); }
+      case Some(x) => write[Byte](0x1)(stream) + write(x)(stream)
+      case None => write[Byte](0x0)(stream);
     }
   }
 }
