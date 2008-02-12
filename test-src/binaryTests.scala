@@ -1,4 +1,4 @@
-package binary;
+package sbinary;
 import org.scalacheck._;
 import org.scalacheck.Test._;
 import Gen._;
