@@ -10,6 +10,10 @@ import Operations._;
 import Instances._;
 import TupleInstances._;
 
+import scalaz.Equal;
+import scalaz.Equal._;
+import scalazextensions.EqualityInstances._;
+
 object BinaryTests extends Application{
   def test[T](prop : T => Boolean)(implicit arb : Arb[T] => Arbitrary[T]) = {
     check(property(prop)).result match {
@@ -18,27 +22,15 @@ object BinaryTests extends Application{
     }
   }
 
-  def testBinaryTypePreservesEquality[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
+  def testBinaryProperties[T](name : String)(implicit 
+                               bin : Binary[T], 
+                               arb : Arb[T] => Arbitrary[T],
+                             equal : Equal[T]) = {
     println(name);
-    test((x : T) => x == fromByteArray[T](toByteArray(x)))
-  }
-
-  def testBinaryTypePreservesArrayEquality[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
-    println("Array[" + name + "]");
-    test((x : Array[T]) => x.deepEquals(fromByteArray[Array[T]](toByteArray(x))))
-  }
-
-  def testBinaryProperties[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
-    testBinaryTypePreservesEquality[T](name);
+    test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
     testLength[T];
 //    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
 //    testBinaryTypePreservesArrayEquality[Array[T]]("Array[Array[" + name + "]]");
-  }
-
-  def arrayBinaryProperties[T](name : String)(implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
-    testBinaryTypePreservesArrayEquality[T](name);
-    testLength[Array[T]];
-//    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
   }
 
   def testLength[T](implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
@@ -99,12 +91,12 @@ object BinaryTests extends Application{
 
   println
   println("Arrays");
-  arrayBinaryProperties[String]("String");
-  arrayBinaryProperties[Array[String]]("Array[String]");
-  arrayBinaryProperties[List[Int]]("List[Int]");
-  arrayBinaryProperties[Option[Byte]]("Option[Byte]");
-  arrayBinaryProperties[Byte]("Byte");
-  arrayBinaryProperties[(Int, Int)]("(Int, Int)");
+  testBinaryProperties[String]("Array[String]");
+  testBinaryProperties[Array[String]]("Array]Array[String]]");
+  testBinaryProperties[List[Int]]("Array[List[Int]]");
+  testBinaryProperties[Option[Byte]]("Array[Option[Byte]]");
+  testBinaryProperties[Byte]("Array[Byte]");
+  testBinaryProperties[(Int, Int)]("Array[(Int, Int)]");
 
   println
   println("Maps");
