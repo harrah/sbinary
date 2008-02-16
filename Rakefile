@@ -1,10 +1,5 @@
 require 'jerbil'
 
-SOURCE_DIR          = "src"
-TEST_SOURCE_DIR     = "test-src"
-BUILD_DIR           = "build"
-DIST_DIR            = 'dist'
-GENERATED_SRC       = 'generated-src'
 FMPP                = 'tools/fmpp_0.9.13/bin/fmpp'
 TEMPLATES           = 'templates'
 
@@ -15,30 +10,23 @@ LIB_DIR             = File.join(Rake.original_dir, "lib")
 NATIVE_LIB_DIR      = File.join(LIB_DIR, "native")
 TEST_LIB_DIR        = File.join(Rake.original_dir, "test-lib")
 
-SOURCE_FILES        = FileList["#{SOURCE_DIR}/**/*.scala", "#{GENERATED_SRC}/**/*.scala"]
-TEST_SOURCE_FILES   = FileList["#{TEST_SOURCE_DIR}/**/*.scala"]
-
-CLASSPATH           = FileList["#{BUILD_DIR}", "#{LIB_DIR}/**/*.jar"]; 
+CLASSPATH           = FileList["build", "#{LIB_DIR}/**/*.jar"]; 
 TEST_CLASSPATH      = FileList["#{TEST_LIB_DIR}/**/*.jar"] + CLASSPATH
 
 load_jvm(CLASSPATH + TEST_CLASSPATH, [])
 
 task :default => :compile
 
-task :generate do
-  if (!File.exists?(GENERATED_SRC)) then
-    mkdir_p GENERATED_SRC;
-    sh "#{FMPP} --ignore-temporary-files -S #{TEMPLATES} -O #{GENERATED_SRC}"
-  end
-end
-
-task :compile => :generate do
-  mkdir_p "#{BUILD_DIR}" unless File.exists?(BUILD_DIR)
-  sh "fsc -cp \"#{CLASSPATH.to_cp}\" -d #{BUILD_DIR} #{SOURCE_FILES}"
+task :compile do
+  mkdir_p "build" unless File.exists? "build"
+  mkdir_p "generated" unless File.exists? "generated"
+  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
+  sh "fsc -cp \"#{CLASSPATH.to_cp}\" -d build #{FileList["generated/src/**/*.scala"]}"
 end
 
 task :compiletests => :compile do
-  sh "fsc -cp \"#{TEST_CLASSPATH.to_cp}\" -d #{BUILD_DIR} #{TEST_SOURCE_FILES}"
+  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
+  sh "fsc -cp \"#{TEST_CLASSPATH.to_cp}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
 end
 
 task :test => :compiletests do
@@ -46,7 +34,8 @@ task :test => :compiletests do
 end
 
 task :clean  do |t|
-  rm_rf BUILD_DIR
-  rm_rf GENERATED_SRC
+  rm_rf "build"
+  rm_rf "generated-src" 
+  rm_rf "generated-test-src" 
   sh "fsc -shutdown"
 end

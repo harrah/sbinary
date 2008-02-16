@@ -40,7 +40,7 @@ abstract class Union${i}[S, <#list 1..i as j>T${j} <% S<#if i!=j>, </#if></#list
 
 object Operations{
   def via[S, T](implicit view : View[S, T], bin : Binary[T]) = new Binary[S]{
-    def reads(input : DataInput) : S = view.from(read[T](input));
+    def readsWithSize(input : DataInput) : (S, Int) = { val (value, size) = readWithSize[T](input); (view.from(value), size) }
     def writes(s : S)(output : DataOutput) = write[T](view.to(s))(output);
   }
 
