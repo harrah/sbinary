@@ -8,7 +8,6 @@ import Prop._;
 import scala.collection._;
 import Operations._;
 import Instances._;
-import TupleInstances._;
 
 import scalaz.Equal;
 import scalaz.Equal._;
@@ -28,16 +27,8 @@ object BinaryTests extends Application{
                              equal : Equal[T]) = {
     println(name);
     test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
-    testLength[T];
 //    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
 //    testBinaryTypePreservesArrayEquality[Array[T]]("Array[Array[" + name + "]]");
-  }
-
-  def testLength[T](implicit bin : Binary[T], arb : Arb[T] => Arbitrary[T]) = {
-    test((x : T) => {
-      val stream = new java.io.ByteArrayOutputStream;
-      write[T](x)(stream) == stream.toByteArray.length     
-    })    
   }
 
   implicit def arbitraryUnit(x : Arb[Unit]) = new Arbitrary[Unit]{

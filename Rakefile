@@ -35,7 +35,6 @@ end
 
 task :clean  do |t|
   rm_rf "build"
-  rm_rf "generated-src" 
-  rm_rf "generated-test-src" 
+  rm_rf "generated" 
   sh "fsc -shutdown"
 end

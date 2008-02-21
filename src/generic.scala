@@ -3,45 +3,112 @@
  */
 package sbinary.generic;
 import sbinary.Operations._;
+import scala.collection.mutable._;
+
 import java.io._;
 
-trait Split[S, L, R]{
-  def join(l  : L, r : R) : S;
-  def fold[T](f : (L, R) => T)(s : S) : T;
-}
 
-object View{
-  def invert[S, T](view : View[S, T]) = new View[T, S]{
-    def to(t : T) : S = view.from(t);
-    def from(s : S) : T = view.to(s);
+object Building{
+  trait Buildable[I[_]]{
+    def builder[T] () : Builder[T]
+    def builderOfCapacity[T](n : Int) : Builder[T] = builder[T] ();
+
+    trait Builder[T]{
+      def += (t : T) : Unit;
+      def ++= (ts : T*) = for (t <- ts) { this += t }
+      def build : I[T];
+    }
   }
 
-  def compose[S, T, U](view1 : View[S, T], view2 : View[T, U]) : View[S, U] = new View[S, U]{
-    def to(s : S) = view2.to(view1.to(s));
-    def from(u : U) = view1.from(view2.from(u));
+  implicit object ListIsBuildable extends Buildable[List]{
+    def builder[T] () = new Builder[T]{
+      val buffer = new ListBuffer[T]();
+      def += (t : T) = buffer += t;
+      def build = buffer.toList;
+    } 
+  }
+
+  implicit object ArrayIsBuildable extends Buildable[Array]{
+    class ArrayBuilder[T](buffer : ArrayBuffer[T]) extends Builder[T]{
+      def += (t : T) = (buffer += t);
+      def build = buffer.toArray;     
+    }
+
+    def builder[T] () = new ArrayBuilder[T](new ArrayBuffer[T])
+    override def builderOfCapacity[T](n : Int) = new ArrayBuilder[T](new ArrayBuffer[T]{
+      ensureSize(n);
+    });
   }
 }
 
-trait View[S, T]{
-  def to(s : S) : T;
-  def from(t : T) : S;
-}
+object Generic {
+  import Building._;
+  import Instances._;
+  def lengthEncoded[S, T[R] <: Collection[R]](implicit bin : Binary[S], build : Buildable[T]) = new Binary[T[S]]{
+    def reads(stream : DataInput) : T[S] = {
+      val length = read[Int](stream);
+      readMany[S, T](length)(stream);
+    }
 
-// Unions are abstract classes rather than traits due to implementation reasons.
-<#list 2..22 as i>
-abstract class Union${i}[S, <#list 1..i as j>T${j} <% S<#if i!=j>, </#if></#list>]{
-  def fold[U] (
-<#list 1..i as j>
-      f${j} : T${j} => U<#if i!=j>,</#if>
+    def writes(ts : T[S])(stream : DataOutput) = {
+      write(ts.size)(stream);
+      ts.foreach(write[S](_ : S)(stream));
+    }
+  }
+
+  def readMany[S, I[_]](length : Int)(stream : DataInput)(implicit bin : Binary[S], build : Buildable[I]) : I[S] = {
+      val buffer = build.builderOfCapacity[S](length);
+      for (i <-  0 until length){
+        buffer += read[S](stream);
+      }
+      buffer.build;
+  } 
+
+  <#list 2..9 as i> 
+  <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
+  def asProduct[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
+   <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i != j>,</#if>
+    </#list>) = new Binary[S]{
+       def reads (input : DataInput) : S = apply(
+      <#list 1..i as j>
+         read[T${j}](input)<#if i != j>,</#if>
+      </#list>
+      )
+
+      def writes(s : S)(output : DataOutput) = {
+        val product = unapply(s);
+        <#list 1..i as j>
+          write(product._${j})(output);
+        </#list>;       
+      }
+    }  
 </#list>
-    ) : S => U
-  }
-</#list>
 
-object Operations{
-  def via[S, T](implicit view : View[S, T], bin : Binary[T]) = new Binary[S]{
-    def readsWithSize(input : DataInput) : (S, Int) = { val (value, size) = readWithSize[T](input); (view.from(value), size) }
-    def writes(s : S)(output : DataOutput) = write[T](view.to(s))(output);
-  }
+<#list 2..9 as i>
+  def asUnion[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](fold : (
+    <#list 1..i as j>
+      T${j} => Unit <#if i!=j>,<#else>) => (S => Unit)</#if>       
+    </#list>
+  ) (implicit 
+    <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i!=j>,</#if>       
+    </#list>
+  ) : Binary[S] = new Binary[S]{
+      def reads (stream : DataInput) = 
+        read[Byte](stream) match {
+          <#list 1..i as j>
+            case ${j} => read[T${j}](stream)
+          </#list>
+        }
+
+      def writes (s : S)(stream : DataOutput) = 
+        fold(
+          <#list 1..i as j>
+            (x : T${j}) => { write[Byte](${j})(stream); write[T${j}](x)(stream) }<#if i!=j>,</#if>
+          </#list>
+        )(s)
+    } 
+</#list>
 
 }
