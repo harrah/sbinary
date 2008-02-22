@@ -64,9 +64,14 @@ object Generic {
       buffer.build;
   } 
 
-  <#list 2..9 as i> 
+  def asSingleton[T](t : T) : Binary[T] = new Binary[T]{
+    def reads(stream : DataInput) = t
+    def writes(t : T)(stream : DataOutput) = ();
+  }
+
+  <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
-  def asProduct[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
+  def asProduct${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
    <#list 1..i as j>
       bin${j} : Binary[T${j}] <#if i != j>,</#if>
     </#list>) = new Binary[S]{
@@ -86,7 +91,7 @@ object Generic {
 </#list>
 
 <#list 2..9 as i>
-  def asUnion[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](fold : (
+  def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](fold : (
     <#list 1..i as j>
       T${j} => Unit <#if i!=j>,<#else>) => (S => Unit)</#if>       
     </#list>

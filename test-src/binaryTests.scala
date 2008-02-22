@@ -51,6 +51,28 @@ object BinaryTests extends Application{
   testBinaryProperties[Int]("Int");
   testBinaryProperties[Double]("Double");
 
+
+  import generic.Generic._;
+  trait Foo;
+
+  case class Bar extends Foo;
+  case class Baz (string : String) extends Foo;
+
+  implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar)
+  implicit val BazIsBinary : Binary[Baz] = asProduct1(Baz)( (x : Baz) => Tuple1(x.string))  
+  implicit val FooIsBinary  : Binary[Foo] = asUnion2 ( (f : Bar => Unit, g : Baz => Unit) => 
+      (x : Foo) => x match {
+        case y@(Bar()) => f(y);
+        case y@(Baz(_)) => g(y);
+      })
+
+  implicit def arbitraryFoo (arb : Arb[Foo]) : Arbitrary[Foo] = new Arbitrary[Foo]{
+    def getArbitrary = arbitrary[Boolean].flatMap( (bar : Boolean) =>
+                            if (bar) value(Bar) else arbitrary[String].map(Baz(_)))
+  }
+
+  implicit val FooIsEq = EqualA[Foo]
+
   // No Arbitrary instances for these. Write some.
   // testBinaryProperties[Long]("Long");
   // testBinaryProperties[Short]("Short");
@@ -94,4 +116,10 @@ object BinaryTests extends Application{
   testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
   testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Option[String], Int]");
   testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[List[Int], String]");
+
+  println
+  println("Foo (from generic combinators)")
+  testBinaryProperties[Foo]("Foo")
+  testBinaryProperties[(Foo, Foo)]("(Foo, Foo)")
+  testBinaryProperties[Array[Foo]]("Array[Foo]")
 }
