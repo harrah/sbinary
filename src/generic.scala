@@ -88,7 +88,7 @@ object Generic {
   <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**
-   *  Tepresents this type as ${i} consecutive binary blocks of type T1..T${i},
+   *  Represents this type as ${i} consecutive binary blocks of type T1..T${i},
    *  relative to the specified way of decomposing and composing S as such.
    */
   def asProduct${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
