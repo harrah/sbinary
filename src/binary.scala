@@ -27,6 +27,9 @@ trait Binary[T]{
   def writes(t : T)(stream : DataOutput) : Unit; 
 }
 
+/**
+ * Standard operations on binary types
+ */
 object Operations{
   implicit def wrapOutputStream(stream : OutputStream) : DataOutputStream = stream match {
     case (x : DataOutputStream) => x;
