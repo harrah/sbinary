@@ -50,14 +50,24 @@ object Operations{
    */
   def write[T](t : T)(stream : DataOutput)(implicit bin : Binary[T]) : Unit = bin.writes(t)(stream);
 
+  /**
+   * Get the serialized value of this class as a byte array.
+   */
   def toByteArray[T](t : T)(implicit bin : Binary[T]) : Array[Byte] = {
     val target = new ByteArrayOutputStream();
     write(t)(target);
     target.toByteArray(); 
   }
-  
+ 
+  /**
+   * Read a value from the byte array. Anything past the end of the value will be
+   * ignored.
+   */ 
   def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = read[T](new ByteArrayInputStream(array));
 
+  /** 
+   * Convenience method for writing binary data to a file.
+   */
   def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
@@ -66,6 +76,9 @@ object Operations{
       raf.close(); }
   }
 
+  /** 
+   * Convenience method for reading binary data from a file.
+   */
   def fromFile[T](file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
@@ -73,8 +86,11 @@ object Operations{
     finally{
       raf.close(); }
   }
-  
 }
+
+/**
+ * Implicit instances for many standard types.
+ */
 object Instances{
   import Operations._;
 
@@ -185,6 +201,4 @@ object Instances{
       case None => write[Byte](0x0)(stream);
     }
   }
-
-
 }
