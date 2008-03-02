@@ -85,6 +85,22 @@ object Generic {
     def writes(t : T)(stream : DataOutput) = ();
   }
 
+
+  /**
+   * Serializes this via a bijection to some other type. 
+   */
+  def wrap[S, T](to : S => T, from : T => S)(implicit bin : Binary[T]) = new Binary[S]{
+    def reads(stream : DataInput) = from(read[T](stream));
+    def writes(s : S)(stream : DataOutput) = write(to(s))(stream);
+  }
+
+  def lazyBinary[S](bin : =>Binary[S]) = new Binary[S]{
+    lazy val delegate = bin;
+
+    def reads(stream : DataInput) = delegate.reads(stream);
+    def writes(s : S)(stream : DataOutput) = delegate.writes(s)(stream);
+  }
+
   <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**

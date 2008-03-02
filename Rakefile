@@ -1,6 +1,5 @@
 require 'jerbil'
 
-FMPP                = 'tools/fmpp_0.9.13/bin/fmpp'
 TEMPLATES           = 'templates'
 
 SCALA_HOME          = ENV["SCALA_HOME"].gsub(/\\/, "/");
@@ -22,7 +21,7 @@ task :default => :compile
 task :compile do
   mkdir_p "build" unless File.exists? "build"
   mkdir_p "generated" unless File.exists? "generated"
-  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
+  sh "fmpp --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
   sh "fsc -cp \"#{CLASSPATH.to_cp}\" -d build #{FileList["generated/src/**/*.scala"]}"
 end
 
@@ -33,7 +32,7 @@ task :dist => [:clean, :compile] do
 end
 
 task :compiletests => :compile do
-  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
+  sh "fmpp --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
   sh "fsc -cp \"#{TEST_CLASSPATH.to_cp}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
 end
 

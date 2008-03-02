@@ -14,7 +14,7 @@ import scalaz.Equal._;
 import scalazextensions.EqualityInstances._;
 
 object BinaryTests extends Application{
-  def test[T](prop : T => Boolean)(implicit arb : Arb[T] => Arbitrary[T]) = {
+  def test[T](prop : T => Boolean)(implicit arb : Arbitrary[T]) = {
     check(property(prop)).result match {
       case GenException(e) => e.printStackTrace();
       case _ => ();
@@ -23,7 +23,7 @@ object BinaryTests extends Application{
 
   def testBinaryProperties[T](name : String)(implicit 
                                bin : Binary[T], 
-                               arb : Arb[T] => Arbitrary[T],
+                               arb : Arbitrary[T],
                              equal : Equal[T]) = {
     println(name);
     test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
@@ -31,19 +31,11 @@ object BinaryTests extends Application{
 //    testBinaryTypePreservesArrayEquality[Array[T]]("Array[Array[" + name + "]]");
   }
 
-  implicit def arbitraryUnit(x : Arb[Unit]) = new Arbitrary[Unit]{
-    def getArbitrary = value(() => ());
-  }
+  implicit val arbitraryUnit =Arbitrary[Unit](value(() => ()))
 
-  implicit def arbitraryArray[T](x: Arb[Array[T]])(implicit arb : Arb[T] => Arbitrary[T]): Arbitrary[Array[T]] =
-    new Arbitrary[Array[T]] {
-      def getArbitrary = arbitrary[List[T]] map ((_.toArray))
-    }
-
-  implicit def arbitraryMap[K, V](arb : Arb[immutable.Map[K, V]])(implicit arbK : Arb[K] => Arbitrary[K], arbV : Arb[V] => Arbitrary[V]) : Arbitrary[immutable.Map[K, V]]=
-    new Arbitrary[immutable.Map[K, V]]{
-    def getArbitrary = arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x);
-  }
+  implicit def arbitraryMap[K, V](implicit arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.Map[K, V]]=
+    Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x))
+  
 
   println("Primitives");
   testBinaryProperties[Byte]("Byte");
@@ -58,7 +50,7 @@ object BinaryTests extends Application{
   case class Bar extends Foo;
   case class Baz (string : String) extends Foo;
 
-  implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar)
+  implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar())
   implicit val BazIsBinary : Binary[Baz] = asProduct1(Baz)( (x : Baz) => Tuple1(x.string))  
   implicit val FooIsBinary  : Binary[Foo] = asUnion2 ( (f : Bar => Unit, g : Baz => Unit) => 
       (x : Foo) => x match {
@@ -66,12 +58,27 @@ object BinaryTests extends Application{
         case y@(Baz(_)) => g(y);
       })
 
-  implicit def arbitraryFoo (arb : Arb[Foo]) : Arbitrary[Foo] = new Arbitrary[Foo]{
-    def getArbitrary = arbitrary[Boolean].flatMap( (bar : Boolean) =>
-                            if (bar) value(Bar) else arbitrary[String].map(Baz(_)))
-  }
+  implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](arbitrary[Boolean].flatMap( (bar : Boolean) =>
+                            if (bar) value(Bar) else arbitrary[String].map(Baz(_))))
+  
 
   implicit val FooIsEq = EqualA[Foo]
+
+  sealed abstract class BinaryTree;
+  case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
+  case class Leaf extends BinaryTree;
+
+  implicit val BinaryTreeIsEq = EqualA[BinaryTree];
+
+  implicit val BinaryTreeIsBinary : Binary[BinaryTree] = lazyBinary({
+    implicit val binaryLeaf = asSingleton(Leaf());
+
+    implicit val binarySplit : Binary[Split] = asProduct2((x : BinaryTree, y : BinaryTree) => Split(x, y))((s : Split) => (s.left, s.right));
+    asUnion2(
+    (f : Split => Unit, g : Leaf => Unit) => ((x : BinaryTree) => x match{
+      case (y : Split) => f(y);
+      case (Leaf()) => g(Leaf());
+    }))}) 
 
   // No Arbitrary instances for these. Write some.
   // testBinaryProperties[Long]("Long");
