@@ -11,7 +11,6 @@ import Instances._;
 
 import scalaz.Equal;
 import scalaz.Equal._;
-import scalazextensions.EqualityInstances._;
 
 object BinaryTests extends Application{
   def test[T](prop : T => Boolean)(implicit arb : Arbitrary[T]) = {
@@ -80,6 +79,16 @@ object BinaryTests extends Application{
       case (Leaf()) => g(Leaf());
     }))}) 
 
+  implicit val arbitraryTree : Arbitrary[BinaryTree] = {
+    def sizedArbitraryTree(n : Int) : Gen[BinaryTree] = 
+      if (n <= 1) value(Leaf());
+      else for (i <- choose(1, n - 1);
+                left <- sizedArbitraryTree(i);
+                right <- sizedArbitraryTree(n - i)
+               ) yield (Split(left, right));
+    Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
+  }
+
   // No Arbitrary instances for these. Write some.
   // testBinaryProperties[Long]("Long");
   // testBinaryProperties[Short]("Short");
@@ -129,4 +138,9 @@ object BinaryTests extends Application{
   testBinaryProperties[Foo]("Foo")
   testBinaryProperties[(Foo, Foo)]("(Foo, Foo)")
   testBinaryProperties[Array[Foo]]("Array[Foo]")
+
+  println
+  println("BinaryTree");
+  testBinaryProperties[BinaryTree]("BinaryTree");
+  testBinaryProperties[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
 }
