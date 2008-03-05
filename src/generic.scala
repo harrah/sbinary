@@ -3,7 +3,8 @@
  */
 package sbinary.generic;
 import sbinary.Operations._;
-import scala.collection.mutable._;
+import scala.collection.mutable.{ListBuffer, ArrayBuffer};
+import scala.collection._;
 
 import java.io._;
 
@@ -27,6 +28,14 @@ object Building{
       val buffer = new ListBuffer[T]();
       def += (t : T) = buffer += t;
       def build = buffer.toList;
+    } 
+  }
+
+  implicit object ImmutableSetIsBuildable extends Buildable[immutable.Set]{
+    def builder[T] () = new Builder[T]{
+      val buffer = new ListBuffer[T]();
+      def += (t : T) = buffer += t;
+      def build = immutable.Set(buffer.toList :_*);
     } 
   }
 

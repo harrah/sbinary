@@ -153,6 +153,7 @@ object Instances{
 
   implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = lengthEncoded[T, List] 
   implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
+  implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = lengthEncoded[T, immutable.Set]
  
   implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
     def reads(in : Input) = immutable.Map.empty ++ in.read[Array[(S, T)]]

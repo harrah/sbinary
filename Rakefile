@@ -18,10 +18,13 @@ load_jvm(CLASSPATH + TEST_CLASSPATH, [])
 
 task :default => :compile
 
-task :compile do
-  mkdir_p "build" unless File.exists? "build"
+task :generate do
   mkdir_p "generated" unless File.exists? "generated"
   sh "fmpp --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
+end
+
+task :compile => :generate do
+  mkdir_p "build" unless File.exists? "build"
   sh "fsc -cp \"#{CLASSPATH.to_cp}\" -d build #{FileList["generated/src/**/*.scala"]}"
 end
 
@@ -40,9 +43,15 @@ task :test => :compiletests do
   sh "scala -cp \"#{TEST_CLASSPATH.to_cp}\" sbinary.BinaryTests"
 end
 
+task :doc => :generate do 
+  mkdir_p "doc" unless File.exists? "doc"
+  sh "scaladoc -d doc #{FileList["generated/src/**/*.scala"]}" 
+end 
+
 task :clean  do |t|
+  sh "fsc -shutdown"
   rm_rf "build"
   rm_rf "generated" 
   rm_rf "dist"
-  sh "fsc -shutdown"
+  rm_rf "doc"  
 end

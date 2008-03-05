@@ -34,15 +34,8 @@ object BinaryTests extends Application{
 
   implicit def arbitraryMap[K, V](implicit arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.Map[K, V]]=
     Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x))
-  
 
-  println("Primitives");
-  testBinaryProperties[Boolean]("Boolean");
-  testBinaryProperties[Byte]("Byte");
-  testBinaryProperties[Char]("Char");
-  testBinaryProperties[Int]("Int");
-  testBinaryProperties[Double]("Double");
-
+  implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
 
   import generic.Generic._;
   trait Foo;
@@ -63,6 +56,7 @@ object BinaryTests extends Application{
   
 
   implicit val FooIsEq = EqualA[Foo]
+  implicit def setsAreEq[T] = EqualA[immutable.Set[T]]
 
   sealed abstract class BinaryTree;
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
@@ -95,6 +89,14 @@ object BinaryTests extends Application{
   // testBinaryProperties[Short]("Short");
   // testBinaryProperties[Float]("Float");
 
+
+  println("Primitives");
+  testBinaryProperties[Boolean]("Boolean");
+  testBinaryProperties[Byte]("Byte");
+  testBinaryProperties[Char]("Char");
+  testBinaryProperties[Int]("Int");
+  testBinaryProperties[Double]("Double");
+
   println
   testBinaryProperties[Unit]("Unit");
 
@@ -118,6 +120,13 @@ object BinaryTests extends Application{
   testBinaryProperties[List[(String, Int)]]("List[(String, Int)]");
   testBinaryProperties[List[Option[Int]]]("List[Option[Int]]");
   testBinaryProperties[List[Unit]]("List[Unit]");
+
+  println
+  println("immutable.Sets");
+  testBinaryProperties[immutable.Set[String]]("immutable.Set[String]");
+  testBinaryProperties[immutable.Set[(String, Int)]]("immutable.Set[(String, Int)]");
+  testBinaryProperties[immutable.Set[Option[Int]]]("immutable.Set[Option[Int]]");
+  testBinaryProperties[immutable.Set[Unit]]("immutable.Set[Unit]");
 
   println
   println("Arrays");
