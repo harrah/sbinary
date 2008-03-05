@@ -55,24 +55,24 @@ object Generic {
    * of the collection as an int, then writing the collection elements in order.
    */
   def lengthEncoded[S, T[R] <: Collection[R]](implicit bin : Binary[S], build : Buildable[T]) = new Binary[T[S]]{
-    def reads(stream : DataInput) : T[S] = {
-      val length = read[Int](stream);
-      readMany[S, T](length)(stream);
+    def reads(in : Input) : T[S] = {
+      val length = in.read[Int];
+      readMany[S, T](length)(in);
     }
 
-    def writes(ts : T[S])(stream : DataOutput) = {
-      write(ts.size)(stream);
-      ts.foreach(write[S](_ : S)(stream));
+    def writes(ts : T[S])(out : Output) = {
+      out.write(ts.size);
+      ts.foreach(out.write[S](_ : S));
     }
   }
 
   /** 
    * Read n elements of the specified type as the desired result type
    */
-  def readMany[S, I[_]](length : Int)(stream : DataInput)(implicit bin : Binary[S], build : Buildable[I]) : I[S] = {
+  def readMany[S, I[_]](length : Int)(in : Input)(implicit bin : Binary[S], build : Buildable[I]) : I[S] = {
       val buffer = build.builderOfCapacity[S](length);
       for (i <-  0 until length){
-        buffer += read[S](stream);
+        buffer += in.read[S];
       }
       buffer.build;
   } 
@@ -81,8 +81,8 @@ object Generic {
    * Trivial serialization. Writing is a no-op, reading always returns this instance.
    */
   def asSingleton[T](t : T) : Binary[T] = new Binary[T]{
-    def reads(stream : DataInput) = t
-    def writes(t : T)(stream : DataOutput) = ();
+    def reads(in : Input) = t
+    def writes(t : T)(out : Output) = ();
   }
 
 
@@ -90,15 +90,15 @@ object Generic {
    * Serializes this via a bijection to some other type. 
    */
   def wrap[S, T](to : S => T, from : T => S)(implicit bin : Binary[T]) = new Binary[S]{
-    def reads(stream : DataInput) = from(read[T](stream));
-    def writes(s : S)(stream : DataOutput) = write(to(s))(stream);
+    def reads(in : Input) = from(in.read[T]);
+    def writes(s : S)(out : Output) = out.write(to(s));
   }
 
   def lazyBinary[S](bin : =>Binary[S]) = new Binary[S]{
     lazy val delegate = bin;
 
-    def reads(stream : DataInput) = delegate.reads(stream);
-    def writes(s : S)(stream : DataOutput) = delegate.writes(s)(stream);
+    def reads(in : Input) = delegate.reads(in);
+    def writes(s : S)(out : Output) = delegate.writes(s)(out);
   }
 
   <#list 1..9 as i> 
@@ -111,16 +111,16 @@ object Generic {
    <#list 1..i as j>
       bin${j} : Binary[T${j}] <#if i != j>,</#if>
     </#list>) = new Binary[S]{
-       def reads (input : DataInput) : S = apply(
+       def reads (in : Input) : S = apply(
       <#list 1..i as j>
-         read[T${j}](input)<#if i != j>,</#if>
+         in.read[T${j}]<#if i != j>,</#if>
       </#list>
       )
 
-      def writes(s : S)(output : DataOutput) = {
+      def writes(s : S)(out : Output) = {
         val product = unapply(s);
         <#list 1..i as j>
-          write(product._${j})(output);
+          out.write(product._${j});
         </#list>;       
       }
     }  
@@ -141,17 +141,17 @@ object Generic {
       bin${j} : Binary[T${j}] <#if i!=j>,</#if>       
     </#list>
   ) : Binary[S] = new Binary[S]{
-      def reads (stream : DataInput) = 
-        read[Byte](stream) match {
+      def reads (in : Input) = 
+        in.read[Byte] match {
           <#list 1..i as j>
-            case ${j} => read[T${j}](stream)
+            case ${j} => in.read[T${j}]
           </#list>
         }
 
-      def writes (s : S)(stream : DataOutput) = 
+      def writes (s : S)(out : Output) = 
         fold(
           <#list 1..i as j>
-            (x : T${j}) => { write[Byte](${j})(stream); write[T${j}](x)(stream) }<#if i!=j>,</#if>
+            (x : T${j}) => { out.write[Byte](${j}); out.write[T${j}](x) }<#if i!=j>,</#if>
           </#list>
         )(s)
     } 

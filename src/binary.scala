@@ -4,6 +4,14 @@ import java.io._
 import scala.collection._;
 import mutable.ListBuffer;
 
+class Input private[sbinary] (private[sbinary] val source : DataInput){
+  def read[S](implicit bin : Binary[S]) : S = bin.reads(this);  
+}
+
+class Output private[sbinary] (private[sbinary] val source : DataOutput){
+  def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this);  
+}
+
 /**
  * Trait for marshaling type T to and from binary data. 
  *
@@ -17,48 +25,41 @@ import mutable.ListBuffer;
  */
 trait Binary[T]{
   /**
-   * Read a T from the DataInput, reading no more data than is neccessary.
+   * Read a T from the Input, reading no more data than is neccessary.
    */
-  def reads(stream : DataInput) : T;
+  def reads(in : Input) : T;
 
   /**
-   * Write a T to the DataOutput. Return the number of bytes written.
+   * Write a T to the Output. Return the number of bytes written.
    */
-  def writes(t : T)(stream : DataOutput) : Unit; 
+  def writes(t : T)(out : Output) : Unit; 
 }
 
 /**
  * Standard operations on binary types
  */
 object Operations{
-  implicit def wrapOutputStream(stream : OutputStream) : DataOutputStream = stream match {
-    case (x : DataOutputStream) => x;
-    case y => new DataOutputStream(y);
+  implicit def wrapOutputStream(out : OutputStream) : Output = out match {
+    case (x : DataOutputStream) => new Output(x);
+    case y => new Output(new DataOutputStream(y));
   }
     
-  implicit def wrapInputStream(stream : InputStream) : DataInputStream = stream match {
-    case (x : DataInputStream) => x;
-    case y => new DataInputStream(y);
+  implicit def wrapInputStream(in : InputStream) : Input = in match {
+    case (x : DataInputStream) => new Input(x);
+    case y => new Input(new DataInputStream(y));
   }
  
+  implicit def wrapOutput(out : DataOutput) : Output = new Output(out);
+  implicit def wrapInput(out : DataInput) : Input = new Input(out);
+
   implicit def fileByName(name : String) : File = new File(name);
-
-  /**
-   * Use an implicit Binary[T] to read type T from the DataInput.
-   */ 
-  def read[T](stream : DataInput)(implicit bin : Binary[T]) : T = bin.reads(stream);
-
-  /**
-   * Use an implicit Binary[T] to write type T to the DataOutput. 
-   */
-  def write[T](t : T)(stream : DataOutput)(implicit bin : Binary[T]) : Unit = bin.writes(t)(stream);
 
   /**
    * Get the serialized value of this class as a byte array.
    */
   def toByteArray[T](t : T)(implicit bin : Binary[T]) : Array[Byte] = {
     val target = new ByteArrayOutputStream();
-    write(t)(target);
+    wrapOutputStream(target).write(t);
     target.toByteArray(); 
   }
  
@@ -66,7 +67,7 @@ object Operations{
    * Read a value from the byte array. Anything past the end of the value will be
    * ignored.
    */ 
-  def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = read[T](new ByteArrayInputStream(array));
+  def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = wrapInputStream(new ByteArrayInputStream(array)).read[T];
 
   /** 
    * Convenience method for writing binary data to a file.
@@ -74,7 +75,7 @@ object Operations{
   def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
-      write[T](t)(raf);}
+      wrapOutput(raf).write[T](t);}
     finally{
       raf.close(); }
   }
@@ -85,7 +86,7 @@ object Operations{
   def fromFile[T](file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
-      read[T](raf);}
+      wrapInput(raf).read[T];}
     finally{
       raf.close(); }
   }
@@ -98,64 +99,76 @@ object Instances{
   import Operations._;
 
   implicit object UnitIsBinary extends Binary[Unit]{
-    def reads(stream : DataInput) = ((), 0);
-    def writes(t : Unit)(stream : DataOutput) = ();
+    def reads(in : Input) = ((), 0);
+    def writes(t : Unit)(out : Output) = ();
   }
 
   implicit object StringIsBinary extends Binary[String]{
-    def reads(stream : DataInput) = stream.readUTF();
-    def writes(t : String)(stream : DataOutput) =
-      stream.writeUTF(t);
+    def reads(in : Input) = in.source.readUTF();
+    def writes(t : String)(out : Output) = out.source.writeUTF(t);
   }
 
   implicit object BooleanIsBinary extends Binary[Boolean]{
-    def reads(stream : DataInput) = stream.readByte != 0
-    def writes(t : Boolean)(stream : DataOutput) = 
-      if (t) write[Byte](0x01)(stream) 
-      else write[Byte](0x00)(stream);
+    def reads(in : Input) = in.source.readByte != 0
+    def writes(t : Boolean)(out : Output) = out.write[Byte](if (t) (0x01) else (0x00));
   }
 
   implicit object ByteIsBinary extends Binary[Byte]{
-    def reads(stream : DataInput) = stream.readByte()
-    def writes(t : Byte)(stream : DataOutput) = 
-      stream.writeByte(t);
+    def reads(in : Input) = in.source.readByte()
+    def writes(t : Byte)(out : Output) = out.source.writeByte(t);
   }
 
   implicit object CharIsBinary extends Binary[Char]{
-    def reads(stream : DataInput) = stream.readChar()
-    def writes(t : Char)(stream : DataOutput) = 
-      stream.writeChar(t);
+    def reads(in : Input) = in.source.readChar()
+    def writes(t : Char)(out : Output) = out.source.writeChar(t);
   }
 
   implicit object ShortIsBinary extends Binary[Short]{
-    def reads(stream : DataInput) = stream.readShort()
-    def writes(t : Short)(stream : DataOutput) = 
-      stream.writeShort(t);
+    def reads(in : Input) = in.source.readShort()
+    def writes(t : Short)(out : Output) = out.source.writeShort(t);
   }
 
   implicit object IntIsBinary extends Binary[Int]{
-    def reads(stream : DataInput) = stream.readInt()
-    def writes(t : Int)(stream : DataOutput) = 
-      stream.writeInt(t);
+    def reads(in : Input) = in.source.readInt()
+    def writes(t : Int)(out : Output) = out.source.writeInt(t);
     
   }
 
   implicit object LongIsBinary extends Binary[Long]{
-    def reads(stream : DataInput) = stream.readLong();
-    def writes(t : Long)(stream : DataOutput) = 
-      stream.writeLong(t);
+    def reads(in : Input) = in.source.readLong();
+    def writes(t : Long)(out : Output) = out.source.writeLong(t);
   }
 
   implicit object FloatIsBinary extends Binary[Float]{
-    def reads(stream : DataInput) = stream.readFloat()
-    def writes(t : Float)(stream : DataOutput) = 
-      stream.writeFloat(t);
+    def reads(in : Input) = in.source.readFloat()
+    def writes(t : Float)(out : Output) = out.source.writeFloat(t);
   }
 
   implicit object DoubleIsBinary extends Binary[Double]{
-    def reads(stream : DataInput) = stream.readDouble()
-    def writes(t : Double)(stream : DataOutput) = 
-      stream.writeDouble(t);
+    def reads(in : Input) = in.source.readDouble()
+    def writes(t : Double)(out : Output) = out.source.writeDouble(t);
+  }
+  import sbinary.generic.Building._;
+  import sbinary.generic.Generic._;
+
+  implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = lengthEncoded[T, List] 
+  implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
+ 
+  implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
+    def reads(in : Input) = immutable.Map.empty ++ in.read[Array[(S, T)]]
+    def writes(ts : immutable.Map[S, T])(out : Output) = out.write(ts.toArray);
+  }
+
+  implicit def optionsAreBinary[S](implicit bin : Binary[S]) : Binary[Option[S]] = new Binary[Option[S]]{
+    def reads(in : Input) = in.read[Byte] match {
+      case 1 => Some(in.read[S]);
+      case 0 => None
+    }
+
+    def writes(s : Option[S])(out : Output) = s match {
+      case Some(x) => { out.write[Byte](0x1); out.write(x) }
+      case None => out.write[Byte](0x0);
+    }
   }
 
 <#list 2..22 as i>
@@ -167,41 +180,18 @@ object Instances{
       bin${j} : Binary[T${j}] <#if i != j>,</#if>
     </#list>
     ) : Binary[${typeName}] = new Binary[${typeName}]{
-      def reads (input : DataInput) : ${typeName} = ( 
+      def reads (in : Input) : ${typeName} = ( 
     <#list 1..i as j>
-        read[T${j}](input)<#if i!=j>,</#if>
+        in.read[T${j}]<#if i!=j>,</#if>
     </#list>
       )
 
-      def writes(tuple : ${typeName})(output : DataOutput) = { 
+      def writes(tuple : ${typeName})(out : Output) = { 
       <#list 1..i as j>
-        write(tuple._${j})(output);      
+        out.write(tuple._${j});      
       </#list>;
       }
   }
 </#list>
 
-  import sbinary.generic.Building._;
-  import sbinary.generic.Generic._;
-
-  implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = lengthEncoded[T, List] 
-  implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
- 
-  implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
-    def reads(stream : DataInput) = 
-      immutable.Map.empty ++ read[Array[(S, T)]](stream)
-    def writes(ts : immutable.Map[S, T])(stream : DataOutput) = write(ts.toArray)(stream);
-  }
-
-  implicit def optionsAreBinary[S](implicit bin : Binary[S]) : Binary[Option[S]] = new Binary[Option[S]]{
-    def reads(stream : DataInput) = stream.readByte() match {
-      case 1 => Some(read[S](stream));
-      case 0 => None
-    }
-
-    def writes(s : Option[S])(stream : DataOutput) = s match {
-      case Some(x) => { write[Byte](0x1)(stream); write(x)(stream) }
-      case None => write[Byte](0x0)(stream);
-    }
-  }
 }

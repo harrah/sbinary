@@ -37,6 +37,7 @@ object BinaryTests extends Application{
   
 
   println("Primitives");
+  testBinaryProperties[Boolean]("Boolean");
   testBinaryProperties[Byte]("Byte");
   testBinaryProperties[Char]("Char");
   testBinaryProperties[Int]("Int");
