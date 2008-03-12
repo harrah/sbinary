@@ -137,7 +137,7 @@ object Generic {
 
 <#list 2..9 as i>
   /**
-   * Uses a single tag bit to represent S as a union of ${i} subtypes. The specified
+   * Uses a single tag byte to represent S as a union of ${i} subtypes. The specified
    * operation is a 'fold', used to build a function over S from a list of functions
    * over the Ti. 
    */
