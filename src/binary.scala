@@ -75,7 +75,7 @@ object Operations{
   def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
-      wrapOutput(raf).write[T](t);}
+      raf.write(toByteArray(t));}
     finally{
       raf.close(); }
   }
@@ -86,7 +86,9 @@ object Operations{
   def fromFile[T](file : File)(implicit bin : Binary[T]) = {
     val raf = new RandomAccessFile(file, "rw");
     try{
-      wrapInput(raf).read[T];}
+      val bytes =new Array[Byte](raf.length().intValue);
+      raf.readFully(bytes);
+      fromByteArray[T](bytes);}
     finally{
       raf.close(); }
   }
