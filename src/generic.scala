@@ -106,6 +106,8 @@ object Generic {
   def lazyBinary[S](bin : =>Binary[S]) = new Binary[S]{
     lazy val delegate = bin;
 
+    override def allowsSharing = delegate.allowsSharing
+
     def reads(in : Input) = delegate.reads(in);
     def writes(s : S)(out : Output) = delegate.writes(s)(out);
   }

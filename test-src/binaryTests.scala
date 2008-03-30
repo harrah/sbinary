@@ -8,6 +8,7 @@ import Prop._;
 import scala.collection._;
 import Operations._;
 import Instances._;
+import Modifiers._;
 
 import scalaz.Equal;
 import scalaz.Equal._;
@@ -16,9 +17,17 @@ object BinaryTests extends Application{
   def test[T](prop : T => Boolean)(implicit arb : Arbitrary[T]) = {
     check(property(prop)).result match {
       case GenException(e) => e.printStackTrace();
+      case PropException(_, e) => e.printStackTrace();
       case _ => ();
     }
   }
+
+  def testSharing[T <: AnyRef](implicit bin : Binary[T], arb : Arbitrary[T]) = 
+    test((x : T) => {      
+      val shared = Shared(x);
+      val Shared((u, v)) = fromByteArray[Shared[(T, T)]](toByteArray(Shared((x, x))));
+      (u eq v) == bin.allowsSharing;
+    })
 
   def testBinaryProperties[T](name : String)(implicit 
                                bin : Binary[T], 
@@ -26,8 +35,6 @@ object BinaryTests extends Application{
                              equal : Equal[T]) = {
     println(name);
     test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
-//    testBinaryTypePreservesArrayEquality[T]("Array[" + name + "]");
-//    testBinaryTypePreservesArrayEquality[Array[T]]("Array[Array[" + name + "]]");
   }
 
   implicit val arbitraryUnit =Arbitrary[Unit](value(() => ()))
@@ -102,11 +109,15 @@ object BinaryTests extends Application{
 
   println
   testBinaryProperties[String]("String")
+  testSharing[String]
 
   println ("Tuples")
   testBinaryProperties[(Int, Int, Int)]("(Int, Int, Int)");
   testBinaryProperties[(String, Int, String)]("(String, Int, String)")
+  testSharing[(String, Int, String)];
   testBinaryProperties[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
+  testBinaryProperties[(String, String)]("(String, String)")
+  testSharing[(String, String)];
 
   println
   println("Options");
