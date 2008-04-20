@@ -12,7 +12,6 @@ import java.io._;
  * Generic operations for creating binary instances
  */
 object Generic {
-  import Building._;
   import Instances._;
 
   def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Binary[T]) : Binary[S] = new Binary[S] {
@@ -20,7 +19,11 @@ object Generic {
     def reads(in : Input) = f(in.read[Array[T]]);
   }
 
-
+  def viaString[T](f : String => T) = new Binary[T]{
+    def reads(in : Input) = f(in.read[String]);
+    def writes(t : T)(out : Output) = out.write(t.toString);
+  }
+  
   /** 
    * Binary instance which encodes the collection by first writing the length
    * of the collection as an int, then writing the collection elements in order.

@@ -6,6 +6,7 @@ import scala.collection.jcl.IdentityHashMap;
 import immutable.TreeMap;
 import mutable.ListBuffer;
 import Instances._;
+import sbinary.generic.Generic._;
 
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
@@ -184,14 +185,17 @@ object Instances{
     def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
   }
 
-  import scala.xml.{XML, Elem};
-  implicit object xmlIsBinary extends Binary[Elem]{
-    def reads(in : Input) = XML.loadString(in.read[String]);
-    def writes(elem : Elem)(out : Output) = out.write(elem.toString);
-  }
+  implicit val fileIsBinary : Binary[File] = viaString(new File(_ : String));
 
-  import sbinary.generic.Building._;
-  import sbinary.generic.Generic._;
+  import java.net.{URI, URL}
+  implicit val urlIsBinary : Binary[URL] = viaString(new URL(_ : String));
+  implicit val uriIsBinary : Binary[URI] = viaString(new URI(_ : String));
+
+  import scala.xml.{XML, Elem, NodeSeq};
+  implicit object xmlIsBinary extends Binary[NodeSeq]{
+    def reads(in : Input) = XML.loadString(in.read[String]).child;
+    def writes(elem : NodeSeq)(out : Output) = out.write(<binary>elem</binary>.toString);
+  }
 
   implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = 
     new LengthEncoded[List[T], T]{
