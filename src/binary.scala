@@ -178,6 +178,11 @@ object Instances{
   implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
   implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = lengthEncoded[T, immutable.Set]
  
+  import scala.xml.{XML, Elem};
+  implicit object xmlIsBinary extends Binary[Elem]{
+    def reads(in : Input) = XML.loadString(in.read[String]);
+    def writes(elem : Elem)(out : Output) = out.write(elem.toString);
+  }
 
   implicit def immutableSortedSetsAreBinary[S](implicit ord : S => Ordered[S], binS : Binary[S]) : Binary[immutable.SortedSet[S]] = new Binary[immutable.SortedSet[S]]{
     def reads(in : Input) = immutable.TreeSet[S](in.read[Array[S]] :_*)
