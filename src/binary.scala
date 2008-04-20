@@ -3,6 +3,7 @@ package sbinary;
 import java.io._
 import scala.collection._;
 import scala.collection.jcl.IdentityHashMap;
+import immutable.TreeMap;
 import mutable.ListBuffer;
 import Instances._;
 
@@ -154,6 +155,22 @@ object Instances{
     def reads(in : Input) = in.source.readDouble()
     def writes(t : Double)(out : Output) = out.source.writeDouble(t);
   }
+
+  implicit object BigIntIsBinary extends Binary[BigInt]{
+    def reads(in : Input) = BigInt(in.read[Array[Byte]]);
+    def writes(i : BigInt)(out : Output) = out.write(i.toByteArray);
+  }
+
+  implicit object BigDecimalIsBinary extends Binary[BigDecimal]{
+    def reads(in : Input) = BigDecimal(in.read[String]);
+    def writes(d : BigDecimal)(out : Output) = out.write(d.toString);
+  }
+
+  implicit object ClassIsBinary extends Binary[Class[T] forSome {type T;}]{
+    def reads(in : Input) = Class.forName(in.read[String]);
+    def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
+  }
+
   import sbinary.generic.Building._;
   import sbinary.generic.Generic._;
 
@@ -164,6 +181,11 @@ object Instances{
   implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
     def reads(in : Input) = immutable.Map.empty ++ in.read[Array[(S, T)]]
     def writes(ts : immutable.Map[S, T])(out : Output) = out.write(ts.toArray);
+  }
+
+  implicit def sortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] = new Binary[immutable.SortedMap[S, T]]{
+    def reads(in : Input) = TreeMap[S, T](in.read[Array[(S, T)]] :_*)
+    def writes(ts : immutable.SortedMap[S, T])(out : Output) = out.write(ts.toArray);
   }
 
   implicit def optionsAreBinary[S](implicit bin : Binary[S]) : Binary[Option[S]] = new Binary[Option[S]]{

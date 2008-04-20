@@ -28,14 +28,35 @@ object BinaryTests extends Application{
                              equal : Equal[T]) = {
     println(name);
     test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
+    false;
   }
 
   implicit val arbitraryUnit =Arbitrary[Unit](value(() => ()))
 
+  implicit def equalTrees[K, V](implicit equal : Equal[List[(K, V)]]) : Equal[SortedMap[K, V]] = new Equal[SortedMap[K, V]]{
+    override def apply(x : SortedMap[K, V], y : SortedMap[K, V]) = equal(x.toList, y.toList);
+  }
+     
+
   implicit def arbitraryMap[K, V](implicit arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.Map[K, V]]=
     Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x))
 
+
+  
+
+  implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[SortedMap[K, V]]=
+    Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*).asInstanceOf[SortedMap[K, V]]))
+
   implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
+
+  implicit def orderedOption[T](opt : Option[T])(implicit ord : T => Ordered[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
+    def compare(that : Option[T]) = (opt, that) match {
+      case (None, None) => 0;
+      case (None, Some(_)) => -1;
+      case (Some(_), None) => 1;
+      case (Some(x), Some(y)) => x.compare(y);
+    }
+  }
 
   import generic.Generic._;
   trait Foo;
@@ -141,8 +162,14 @@ object BinaryTests extends Application{
   println
   println("Maps");
   testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
-  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Option[String], Int]");
-  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[List[Int], String]");
+  testBinaryProperties[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
+  testBinaryProperties[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
+
+  println("SortedMaps");
+  testBinaryProperties[SortedMap[Int, Int]]("SortedMap[Int, Int]");
+  testBinaryProperties[SortedMap[String, Int]]("SortedMap[String, Int]");
+//  testBinaryProperties[SortedMap[Option[String], Int]]("SortedMap[Option[String], Int]");
+//  testBinaryProperties[SortedMap[List[Int], Int]]("SortedMap[List[Int], String]");
 
   println
   println("Foo (from generic combinators)")
