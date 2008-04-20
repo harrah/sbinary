@@ -178,12 +178,18 @@ object Instances{
   implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
   implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = lengthEncoded[T, immutable.Set]
  
+
+  implicit def immutableSortedSetsAreBinary[S](implicit ord : S => Ordered[S], binS : Binary[S]) : Binary[immutable.SortedSet[S]] = new Binary[immutable.SortedSet[S]]{
+    def reads(in : Input) = immutable.TreeSet[S](in.read[Array[S]] :_*)
+    def writes(ts : immutable.SortedSet[S])(out : Output) = out.write(ts.toArray);
+  }
+
   implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
     def reads(in : Input) = immutable.Map.empty ++ in.read[Array[(S, T)]]
     def writes(ts : immutable.Map[S, T])(out : Output) = out.write(ts.toArray);
   }
 
-  implicit def sortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] = new Binary[immutable.SortedMap[S, T]]{
+  implicit def immutableSortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] = new Binary[immutable.SortedMap[S, T]]{
     def reads(in : Input) = TreeMap[S, T](in.read[Array[(S, T)]] :_*)
     def writes(ts : immutable.SortedMap[S, T])(out : Output) = out.write(ts.toArray);
   }
