@@ -8,71 +8,10 @@ import Instances._;
 
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = bin.reads(this); 
-
-  def shared : Input = {
-    val outer = this; 
-    new Input(source){
-      override def toString = "Shared input";
-      val references = new mutable.HashMap[Int, Any];
-      override def read[S](implicit bin : Binary[S]) : S = {
-        if (!bin.allowsSharing) outer.read[S]
-        else {
-          val id = outer.read[Int];
-         
-          references.get(id) match {
-            case Some(t) => t.asInstanceOf[S];
-            case None => {
-              val s = bin.reads(this);
-              references.put(id, s);
-              s;            
-            }
-          } 
-        }
-      }
-
-//      override def shared = this;
-    }
-  } 
 }
 
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
   def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this);  
-  def shared : Output = {
-    val outer = this; 
-    new Output(source){
-      val references = new IdentityHashMap[AnyRef, Int];      
-      var lastId = 0;
-
-      override def toString = "Shared output";
-      override def write[T](t : T)(implicit bin : Binary[T]) : Unit = { 
-        if (!bin.allowsSharing) outer.write(t);  
-        else {
-          val rt = t.asInstanceOf[AnyRef];
-          references.get(rt) match {
-            case None => {
-              lastId += 1;
-              references.put(rt, lastId);
-              outer.write(lastId);
-              bin.writes(t)(this);  
-            }
-            case Some(id) => outer.write(id);          
-          }
-        }
-      }
-//      override def shared = this;
-    }
-  }
-}
-
-object Modifiers{
-  case class Shared[T](value : T);
-  
-  implicit def sharedBinary[T](implicit bin : Binary[T]) : Binary[Shared[T]] = new Binary[Shared[T]]{
-    def reads(in : Input) : Shared[T] = Shared(in.shared.read[T]); 
-
-    def writes(t : Shared[T])(out : Output) : Unit = out.shared.write(t.value); 
-
-  }
 }
 
 /**
@@ -96,11 +35,6 @@ trait Binary[T]{
    * Write a T to the Output. Return the number of bytes written.
    */
   def writes(t : T)(out : Output) : Unit; 
-
-  /**
-   * Is one allowed to share references of this class.
-   */
-  def allowsSharing = true;
 }
 
 /**
@@ -170,11 +104,7 @@ object Operations{
 object Instances{
   import Operations._;
 
-  trait ValueBinary[T] extends Binary[T]{
-    override def allowsSharing = false;
-  }
-
-  implicit object UnitIsBinary extends ValueBinary[Unit]{
+  implicit object UnitIsBinary extends Binary[Unit]{
     def reads(in : Input) = ((), 0);
     def writes(t : Unit)(out : Output) = ();
   }
@@ -184,43 +114,43 @@ object Instances{
     def writes(t : String)(out : Output) = out.source.writeUTF(t); 
   }
 
-  implicit object BooleanIsBinary extends ValueBinary[Boolean]{
+  implicit object BooleanIsBinary extends Binary[Boolean]{
     def reads(in : Input) = in.source.readByte != 0
     def writes(t : Boolean)(out : Output) = out.write[Byte](if (t) (0x01) else (0x00));
   }
 
-  implicit object ByteIsBinary extends ValueBinary[Byte]{
+  implicit object ByteIsBinary extends Binary[Byte]{
     def reads(in : Input) = in.source.readByte()
     def writes(t : Byte)(out : Output) = out.source.writeByte(t);
   }
 
-  implicit object CharIsBinary extends ValueBinary[Char]{
+  implicit object CharIsBinary extends Binary[Char]{
     def reads(in : Input) = in.source.readChar()
     def writes(t : Char)(out : Output) = out.source.writeChar(t);
   }
 
-  implicit object ShortIsBinary extends ValueBinary[Short]{
+  implicit object ShortIsBinary extends Binary[Short]{
     def reads(in : Input) = in.source.readShort()
     def writes(t : Short)(out : Output) = out.source.writeShort(t);
   }
 
-  implicit object IntIsBinary extends ValueBinary[Int]{
+  implicit object IntIsBinary extends Binary[Int]{
     def reads(in : Input) = in.source.readInt()
     def writes(t : Int)(out : Output) = out.source.writeInt(t);
     
   }
 
-  implicit object LongIsBinary extends ValueBinary[Long]{
+  implicit object LongIsBinary extends Binary[Long]{
     def reads(in : Input) = in.source.readLong();
     def writes(t : Long)(out : Output) = out.source.writeLong(t);
   }
 
-  implicit object FloatIsBinary extends ValueBinary[Float]{
+  implicit object FloatIsBinary extends Binary[Float]{
     def reads(in : Input) = in.source.readFloat()
     def writes(t : Float)(out : Output) = out.source.writeFloat(t);
   }
 
-  implicit object DoubleIsBinary extends ValueBinary[Double]{
+  implicit object DoubleIsBinary extends Binary[Double]{
     def reads(in : Input) = in.source.readDouble()
     def writes(t : Double)(out : Output) = out.source.writeDouble(t);
   }
