@@ -8,11 +8,15 @@ import mutable.ListBuffer;
 import Instances._;
 
 class Input private[sbinary] (private[sbinary] val source : DataInput){
-  def read[S](implicit bin : Binary[S]) : S = bin.reads(this); 
+  def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
+  def asStream[S](implicit bin : Binary[S]) : Stream[S] = new Stream[S]{
+    lazy val (head, tail) = (read[S], asStream[S]);
+  }   
 }
 
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
   def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this);  
+  def writeAll[T](ts : Iterable[T])(implicit bin : Binary[T]) : Unit = ts.foreach(write(_ : T));
 }
 
 /**
@@ -197,6 +201,21 @@ object Instances{
   implicit def immutableSortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] = new Binary[immutable.SortedMap[S, T]]{
     def reads(in : Input) = TreeMap[S, T](in.read[Array[(S, T)]] :_*)
     def writes(ts : immutable.SortedMap[S, T])(out : Output) = out.write(ts.toArray);
+  }
+
+  implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
+    def reads(in : Input) = {
+      val buffer = new ListBuffer[S];
+      while (in.read[Byte] != 0){
+        buffer += in.read[S];
+      }
+      buffer.toList.toStream;
+    }
+
+    def writes(stream : Stream[S])(out : Output){
+      stream.foreach(x => { out.write[Byte](1); out.write(x); });
+      out.write[Byte](0);
+    }
   }
 
   implicit def optionsAreBinary[S](implicit bin : Binary[S]) : Binary[Option[S]] = new Binary[Option[S]]{
