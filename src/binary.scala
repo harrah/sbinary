@@ -185,11 +185,13 @@ object Instances{
     def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
   }
 
+  implicit val symbolIsBinary : Binary[Symbol] = viaString(Symbol(_));
   implicit val fileIsBinary : Binary[File] = viaString(new File(_ : String));
 
   import java.net.{URI, URL}
   implicit val urlIsBinary : Binary[URL] = viaString(new URL(_ : String));
   implicit val uriIsBinary : Binary[URI] = viaString(new URI(_ : String));
+
 
   import scala.xml.{XML, Elem, NodeSeq};
   implicit object xmlIsBinary extends Binary[NodeSeq]{
