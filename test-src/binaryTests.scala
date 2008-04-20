@@ -22,13 +22,6 @@ object BinaryTests extends Application{
     }
   }
 
-  def testSharing[T <: AnyRef](implicit bin : Binary[T], arb : Arbitrary[T]) = 
-    test((x : T) => {      
-      val shared = Shared(x);
-      val Shared((u, v)) = fromByteArray[Shared[(T, T)]](toByteArray(Shared((x, x))));
-      (u eq v) == bin.allowsSharing;
-    })
-
   def testBinaryProperties[T](name : String)(implicit 
                                bin : Binary[T], 
                                arb : Arbitrary[T],
@@ -109,15 +102,12 @@ object BinaryTests extends Application{
 
   println
   testBinaryProperties[String]("String")
-  testSharing[String]
 
   println ("Tuples")
   testBinaryProperties[(Int, Int, Int)]("(Int, Int, Int)");
   testBinaryProperties[(String, Int, String)]("(String, Int, String)")
-  testSharing[(String, Int, String)];
   testBinaryProperties[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
   testBinaryProperties[(String, String)]("(String, String)")
-  testSharing[(String, String)];
 
   println
   println("Options");
