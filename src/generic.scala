@@ -91,15 +91,13 @@ object Generic {
    * operation is a 'fold', used to build a function over S from a list of functions
    * over the Ti. 
    */
-  def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](fold : (
+  def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](
     <#list 1..i as j>
-      T${j} => Unit <#if i!=j>,<#else>) => (S => Unit)</#if>       
+      clazz${j} : Class[T${j}]<#if i!=j>,<#else>)(implicit </#if>       
     </#list>
-  ) (implicit 
     <#list 1..i as j>
-      bin${j} : Binary[T${j}] <#if i!=j>,</#if>       
+      bin${j} : Binary[T${j}] <#if i!=j>,<#else>) : Binary[S] = new Binary[S]{</#if>
     </#list>
-  ) : Binary[S] = new Binary[S]{
       def reads (in : Input) = 
         in.read[Byte] match {
           <#list 1..i as j>
@@ -108,11 +106,12 @@ object Generic {
         }
 
       def writes (s : S)(out : Output) = 
-        fold(
           <#list 1..i as j>
-            (x : T${j}) => { out.write[Byte](${j}); out.write[T${j}](x) }<#if i!=j>,</#if>
+            if (clazz${j}.isInstance(s)){
+              out.write[Byte](${j});
+              out.write[T${j}](s.asInstanceOf[T${j}]);        
+            } else <#if i==j>error("Unrecognised object: " + s);</#if>
           </#list>
-        )(s)
     } 
 </#list>
 
