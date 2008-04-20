@@ -9,9 +9,18 @@ import Instances._;
 
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
-  def asStream[S](implicit bin : Binary[S]) : Stream[S] = new Stream[S]{
-    lazy val (head, tail) = (read[S], asStream[S]);
-  }   
+
+  /**
+   * Treat this input as a stream, where the head is produced by reading 
+   * an S from the input. 
+   * The results of calling read while iterating this stream are undefined.   
+   */
+  def asStream[S](implicit bin : Binary[S]) : Stream[S] = Stream.cons(read[S], asStream[S]);  
+
+  def asIterator[S](implicit bin : Binary[S]) = new Iterator[S]{
+    def hasNext = true;
+    def next = read[S];
+  }
 }
 
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
@@ -175,34 +184,54 @@ object Instances{
     def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
   }
 
-  import sbinary.generic.Building._;
-  import sbinary.generic.Generic._;
-
-  implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = lengthEncoded[T, List] 
-  implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = lengthEncoded[T, Array]
-  implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = lengthEncoded[T, immutable.Set]
- 
   import scala.xml.{XML, Elem};
   implicit object xmlIsBinary extends Binary[Elem]{
     def reads(in : Input) = XML.loadString(in.read[String]);
     def writes(elem : Elem)(out : Output) = out.write(elem.toString);
   }
 
-  implicit def immutableSortedSetsAreBinary[S](implicit ord : S => Ordered[S], binS : Binary[S]) : Binary[immutable.SortedSet[S]] = new Binary[immutable.SortedSet[S]]{
-    def reads(in : Input) = immutable.TreeSet[S](in.read[Array[S]] :_*)
-    def writes(ts : immutable.SortedSet[S])(out : Output) = out.write(ts.toArray);
-  }
+  import sbinary.generic.Building._;
+  import sbinary.generic.Generic._;
 
-  implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] = new Binary[immutable.Map[S, T]]{
-    def reads(in : Input) = immutable.Map.empty ++ in.read[Array[(S, T)]]
-    def writes(ts : immutable.Map[S, T])(out : Output) = out.write(ts.toArray);
-  }
+  implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = 
+    new LengthEncoded[List[T], T]{
+      def build(length : Int, ts : Iterator[T]) = {
+        val buffer = new ListBuffer[T];
+        ts.foreach(buffer += (_ : T));
+        buffer.toList;
+      } 
+    }
 
-  implicit def immutableSortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] = new Binary[immutable.SortedMap[S, T]]{
-    def reads(in : Input) = TreeMap[S, T](in.read[Array[(S, T)]] :_*)
-    def writes(ts : immutable.SortedMap[S, T])(out : Output) = out.write(ts.toArray);
-  }
+  implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = 
+    new LengthEncoded[Array[T], T]{
+      def build(length : Int, ts : Iterator[T]) = {
+        val result = new Array[T](length);
+        ts.copyToArray(result, 0);
+        result;
+      }
+    }
 
+  implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = 
+    viaArray((x : Array[T]) => immutable.Set(x :_*))
+
+  implicit def immutableSortedSetsAreBinary[S](implicit ord : S => Ordered[S], binS : Binary[S]) : Binary[immutable.SortedSet[S]] = 
+    viaArray( (x : Array[S]) => immutable.TreeSet[S](x :_*))
+
+  implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] =
+    viaArray( (x : Array[(S, T)]) => immutable.Map(x :_*));
+
+  implicit def immutableSortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] =
+    viaArray( (x : Array[(S, T)]) => TreeMap[S, T](x :_*))
+
+  /**
+   * Binary instance for streams.
+   * Note that unlike almost all other collections this is not length encoded
+   * Instead it is encoded with a sequence of byte separators, with a single
+   * byte value of 1 preceding each element to be read and a value of 0 indicating
+   * the stream termination.
+   * This is to ensure proper laziness behaviour - values will be written as they
+   * become available rather than thunking the entire stream up front. 
+   */
   implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
     def reads(in : Input) = {
       val buffer = new ListBuffer[S];
