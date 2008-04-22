@@ -133,8 +133,8 @@ object Instances{
   }
 
   implicit object BooleanIsBinary extends Binary[Boolean]{
-    def reads(in : Input) = in.source.readByte != 0
-    def writes(t : Boolean)(out : Output) = out.write[Byte](if (t) (0x01) else (0x00));
+    def reads(in : Input) = in.readByte != 0
+    def writes(t : Boolean)(out : Output) = out.writeByte(if (t) (0x01) else (0x00));
   }
 
   implicit object ByteIsBinary extends Binary[Byte]{
@@ -151,8 +151,12 @@ object Instances{
   }
 
   implicit object ShortIsBinary extends Binary[Short]{
-    def reads(in : Input) = in.source.readShort()
-    def writes(t : Short)(out : Output) = out.source.writeShort(t);
+    def reads(in : Input) = ((in.readByte << 8) + in.readByte).toShort
+
+    def writes(t : Short)(out : Output) = {
+      out.writeByte( ((t >>> 8) & 0xFF).toByte);
+      out.writeByte( t.toByte);
+    } 
   }
 
   implicit object IntIsBinary extends Binary[Int]{
