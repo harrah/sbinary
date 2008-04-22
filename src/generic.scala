@@ -13,17 +13,6 @@ import java.io._;
  */
 object Generic {
   import Instances._;
-
-  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Binary[T]) : Binary[S] = new Binary[S] {
-    def writes(xs : S)(out : Output) = { out.write(xs.size); out.writeAll(xs); }
-    def reads(in : Input) = f(in.read[Array[T]]);
-  }
-
-  def viaString[T](f : String => T) = new Binary[T]{
-    def reads(in : Input) = f(in.read[String]);
-    def writes(t : T)(out : Output) = out.write(t.toString);
-  }
-  
   /** 
    * Binary instance which encodes the collection by first writing the length
    * of the collection as an int, then writing the collection elements in order.
@@ -35,6 +24,22 @@ object Generic {
     def writes(ts : S)(out : Output) = { out.write(ts.size); out.writeAll(ts); }
   }
 
+  /**
+   * Length encodes, but with the result built from an array. 
+   */
+  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Binary[T]) : Binary[S] = new Binary[S] {
+    def writes(xs : S)(out : Output) = { out.write(xs.size); out.writeAll(xs); }
+    def reads(in : Input) = f(in.read[Array[T]]);
+  }
+
+  /**
+   * Encodes and decodes via some String representation.
+   */
+  def viaString[T](f : String => T) = new Binary[T]{
+    def reads(in : Input) = f(in.read[String]);
+    def writes(t : T)(out : Output) = out.write(t.toString);
+  }
+  
   /**
    * Trivial serialization. Writing is a no-op, reading always returns this instance.
    */

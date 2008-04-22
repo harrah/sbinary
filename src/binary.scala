@@ -11,6 +11,8 @@ import sbinary.generic.Generic._;
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
 
+  def readByte : Byte = source.readByte;;
+
   /**
    * Treat this input as a stream, where the head is produced by reading 
    * an S from the input. 
@@ -25,7 +27,8 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
 }
 
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
-  def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this);  
+  def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this); 
+  def writeByte(byte : Byte) = source.writeByte(byte); 
   def writeAll[T](ts : Iterable[T])(implicit bin : Binary[T]) : Unit = ts.foreach(write(_ : T));
 }
 
@@ -135,13 +138,16 @@ object Instances{
   }
 
   implicit object ByteIsBinary extends Binary[Byte]{
-    def reads(in : Input) = in.source.readByte()
-    def writes(t : Byte)(out : Output) = out.source.writeByte(t);
+    def reads(in : Input) = in.readByte
+    def writes(t : Byte)(out : Output) = out.writeByte(t);
   }
 
   implicit object CharIsBinary extends Binary[Char]{
-    def reads(in : Input) = in.source.readChar()
-    def writes(t : Char)(out : Output) = out.source.writeChar(t);
+    def reads(in : Input) = ((in.readByte << 8) + in.readByte).toChar;
+    def writes(t : Char)(out : Output) = {
+      out.writeByte(((t >>> 8) & 0xFF).toByte);
+      out.writeByte(((t >>> 0) & 0xFF).toByte);
+    }
   }
 
   implicit object ShortIsBinary extends Binary[Short]{
@@ -150,24 +156,42 @@ object Instances{
   }
 
   implicit object IntIsBinary extends Binary[Int]{
-    def reads(in : Input) = in.source.readInt()
-    def writes(t : Int)(out : Output) = out.source.writeInt(t);
-    
+    def reads(in : Input) = {
+      val ch1 = in.read[Byte];
+      val ch2 = in.read[Byte];
+      val ch3 = in.read[Byte];
+      val ch4 = in.read[Byte];
+      ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + (ch4 << 0)) 
+    }
+
+    def writes(t : Int)(out : Output) = {
+      out.writeByte(((t >>> 24) & 0xFF).toByte);
+      out.writeByte(((t >>> 16) & 0xFF).toByte);
+      out.writeByte(((t >>>  8) & 0xFF).toByte);
+      out.writeByte(((t >>>  0) & 0xFF).toByte);
+    } 
   }
 
   implicit object LongIsBinary extends Binary[Long]{
-    def reads(in : Input) = in.source.readLong();
-    def writes(t : Long)(out : Output) = out.source.writeLong(t);
+    def reads(in : Input) = {
+      val high = in.read[Int];
+      val low  = in.read[Int];
+      (high.longValue << 32) + low;
+    } 
+    def writes(t : Long)(out : Output) = {
+      out.write[Int]((t >>> 32).toInt);
+      out.write[Int](t.intValue);
+    }
   }
 
   implicit object FloatIsBinary extends Binary[Float]{
-    def reads(in : Input) = in.source.readFloat()
-    def writes(t : Float)(out : Output) = out.source.writeFloat(t);
+    def reads(in : Input) = java.lang.Float.intBitsToFloat(in.read[Int])
+    def writes(t : Float)(out : Output) = out.write[Int](java.lang.Float.floatToIntBits(t));
   }
 
   implicit object DoubleIsBinary extends Binary[Double]{
-    def reads(in : Input) = in.source.readDouble()
-    def writes(t : Double)(out : Output) = out.source.writeDouble(t);
+    def reads(in : Input) = java.lang.Double.longBitsToDouble(in.read[Long]);
+    def writes(t : Double)(out : Output) = out.write[Long](java.lang.Double.doubleToLongBits(t));
   }
 
   implicit object BigIntIsBinary extends Binary[BigInt]{
@@ -235,17 +259,15 @@ object Instances{
    * Instead it is encoded with a sequence of byte separators, with a single
    * byte value of 1 preceding each element to be read and a value of 0 indicating
    * the stream termination.
+   *
    * This is to ensure proper laziness behaviour - values will be written as they
    * become available rather than thunking the entire stream up front. 
+   * 
+   * Warning! The resulting Stream is read lazily. Be sure to force it before
+   * reading anything else from the input stream. 
    */
   implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
-    def reads(in : Input) = {
-      val buffer = new ListBuffer[S];
-      while (in.read[Byte] != 0){
-        buffer += in.read[S];
-      }
-      buffer.toList.toStream;
-    }
+    def reads(in : Input) = if (in.read[Byte] == 0) Stream.empty else Stream.cons(in.read[S], reads(in))
 
     def writes(stream : Stream[S])(out : Output){
       stream.foreach(x => { out.write[Byte](1); out.write(x); });
