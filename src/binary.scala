@@ -11,7 +11,8 @@ import sbinary.generic.Generic._;
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
 
-  def readByte : Byte = source.readByte;;
+  def readByte : Byte = source.readByte;
+  def readUnsigned : Int = source.readByte & 255;
 
   /**
    * Treat this input as a stream, where the head is produced by reading 
@@ -143,7 +144,7 @@ object Instances{
   }
 
   implicit object CharIsBinary extends Binary[Char]{
-    def reads(in : Input) = ((in.readByte << 8) + in.readByte).toChar;
+    def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toChar;
     def writes(t : Char)(out : Output) = {
       out.writeByte(((t >>> 8) & 0xFF).toByte);
       out.writeByte(((t >>> 0) & 0xFF).toByte);
@@ -151,7 +152,7 @@ object Instances{
   }
 
   implicit object ShortIsBinary extends Binary[Short]{
-    def reads(in : Input) = ((in.readByte << 8) + in.readByte).toShort
+    def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toShort
 
     def writes(t : Short)(out : Output) = {
       out.writeByte( ((t >>> 8) & 0xFF).toByte);
@@ -161,10 +162,10 @@ object Instances{
 
   implicit object IntIsBinary extends Binary[Int]{
     def reads(in : Input) = {
-      val ch1 = in.read[Byte];
-      val ch2 = in.read[Byte];
-      val ch3 = in.read[Byte];
-      val ch4 = in.read[Byte];
+      val ch1 = in.readUnsigned;
+      val ch2 = in.readUnsigned;
+      val ch3 = in.readUnsigned;
+      val ch4 = in.readUnsigned;
       ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + (ch4 << 0)) 
     }
 
@@ -177,14 +178,23 @@ object Instances{
   }
 
   implicit object LongIsBinary extends Binary[Long]{
-    def reads(in : Input) = {
-      val high = in.read[Int];
-      val low  = in.read[Int];
-      (high.longValue << 32) + low;
-    } 
+    def reads(in : Input) = ((in.readUnsigned.toLong << 56) +
+                ((in.readUnsigned.toLong & 255).toLong << 48) +
+            		((in.readUnsigned.toLong & 255) << 40) +
+                ((in.readUnsigned.toLong & 255) << 32) +
+                ((in.readUnsigned.toLong & 255) << 24) +
+                ((in.readUnsigned & 255) << 16) +
+                ((in.readUnsigned & 255) <<  8) +
+                ((in.readUnsigned & 255) <<  0));
     def writes(t : Long)(out : Output) = {
-      out.write[Int]((t >>> 32).toInt);
-      out.write[Int](t.intValue);
+      out.writeByte((t >>> 56).toByte);
+      out.writeByte((t >>> 48).toByte);
+      out.writeByte((t >>> 40).toByte);
+      out.writeByte((t >>> 32).toByte);
+      out.writeByte((t >>> 24).toByte);
+      out.writeByte((t >>> 16).toByte);
+      out.writeByte((t >>> 8).toByte);
+      out.writeByte((t >>> 0).toByte);
     }
   }
 

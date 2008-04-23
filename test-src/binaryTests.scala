@@ -8,7 +8,6 @@ import Prop._;
 import scala.collection._;
 import Operations._;
 import Instances._;
-import Modifiers._;
 
 import scalaz.Equal;
 import scalaz.Equal._;
@@ -18,7 +17,7 @@ object BinaryTests extends Application{
     check(property(prop)).result match {
       case GenException(e) => e.printStackTrace();
       case PropException(_, e) => e.printStackTrace();
-      case _ => ();
+      case x => println(x);
     }
   }
 
@@ -61,11 +60,7 @@ object BinaryTests extends Application{
 
   implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar())
   implicit val BazIsBinary : Binary[Baz] = asProduct1(Baz)( (x : Baz) => Tuple1(x.string))  
-  implicit val FooIsBinary  : Binary[Foo] = asUnion2 ( (f : Bar => Unit, g : Baz => Unit) => 
-      (x : Foo) => x match {
-        case y@(Bar()) => f(y);
-        case y@(Baz(_)) => g(y);
-      })
+  implicit val FooIsBinary  : Binary[Foo] = asUnion2 (classOf[Bar], classOf[Baz])
 
   implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](arbitrary[Boolean].flatMap( (bar : Boolean) =>
                             if (bar) value(Bar) else arbitrary[String].map(Baz(_))))
@@ -84,11 +79,8 @@ object BinaryTests extends Application{
     implicit val binaryLeaf = asSingleton(Leaf());
 
     implicit val binarySplit : Binary[Split] = asProduct2((x : BinaryTree, y : BinaryTree) => Split(x, y))((s : Split) => (s.left, s.right));
-    asUnion2(
-    (f : Split => Unit, g : Leaf => Unit) => ((x : BinaryTree) => x match{
-      case (y : Split) => f(y);
-      case (Leaf()) => g(Leaf());
-    }))}) 
+    asUnion2(classOf[Leaf], classOf[Split]);
+  })
 
   implicit val arbitraryTree : Arbitrary[BinaryTree] = {
     def sizedArbitraryTree(n : Int) : Gen[BinaryTree] = 
@@ -100,8 +92,9 @@ object BinaryTests extends Application{
     Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
   }
 
+  implicit val arbitraryLong : Arbitrary[Long] = Arbitrary[Long](for (x <- arbitrary[Int]; y <- arbitrary[Int]) yield ((x.toLong << 32) + y));
+
   // No Arbitrary instances for these. Write some.
-  // testBinaryProperties[Long]("Long");
   // testBinaryProperties[Short]("Short");
   // testBinaryProperties[Float]("Float");
 
@@ -112,6 +105,7 @@ object BinaryTests extends Application{
   testBinaryProperties[Char]("Char");
   testBinaryProperties[Int]("Int");
   testBinaryProperties[Double]("Double");
+  testBinaryProperties[Long]("Long");
 
   println
   testBinaryProperties[Unit]("Unit");
@@ -160,9 +154,9 @@ object BinaryTests extends Application{
   testBinaryProperties[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
   testBinaryProperties[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
 
-  println("immutable.SortedMaps");
-  testBinaryProperties[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
-  testBinaryProperties[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
+  println("immutable.SortedMaps tests currently disabled");
+//  testBinaryProperties[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
+//  testBinaryProperties[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
 //  testBinaryProperties[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
 //  testBinaryProperties[immutable.SortedMap[List[Int], Int]]("immutable.SortedMap[List[Int], String]");
 
