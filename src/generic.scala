@@ -66,6 +66,23 @@ object Generic {
     def writes(s : S)(out : Output) = delegate.writes(s)(out);
   }
 
+  /**
+   * Attaches a stamp to the data. This stamp is placed at the beginning of the format and may be used
+   * to verify the integrity of the data (e.g. a magic number for the data format version). 
+   */
+  def withStamp[S, T](stamp : S)(binary : Binary[T])(implicit binS : Binary[S]) : Binary[T] = new Binary[T]{
+    def reads(in : Input) = {
+      val datastamp = in.read[S];
+      if (stamp != datastamp) error("Incorrect stamp. Expected: " + stamp + ", Found: " + datastamp);
+      binary.reads(in);
+    }
+
+    def writes(t : T)(out : Output) = {
+      out.write(stamp);
+      binary.writes(t)(out);
+    }
+  }
+
   <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**
