@@ -83,6 +83,17 @@ object Generic {
     }
   }
 
+
+  /**
+   * Binary instance for values of a specific enumeration.
+   */
+  def enumValues[V <: Enumeration#Value](e : Enumeration { type Value = V }) : Binary[V] =
+    new Binary[V] {
+      def reads(in : Input) = e(in.read[Int]).asInstanceOf[V]
+      def writes(v : V)(out : Output) = out.write(v.id)
+    }
+
+
   <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**
