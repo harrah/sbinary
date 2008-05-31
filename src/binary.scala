@@ -13,7 +13,10 @@ import sbinary.generic.Generic._;
  * It's currently implemented in terms of java.io.DataInput, but this might change
  * in future releases.
  */
-class Input private[sbinary] (private[sbinary] val source : DataInput){
+class Input private[sbinary] (private[sbinary] val source : DataInput with Closeable){
+  /**
+   * Read an object of the specified type.
+   */
   def read[S](implicit bin : Binary[S]) : S = { forceLazyIO; bin.reads(this); }
 
   private[sbinary] def readByte : Byte = source.readByte;
@@ -56,8 +59,13 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
       
       buffer.toStream;
     }
+
   }
 
+  /**
+   * Close the underlying IO resource associated with this Input. 
+   */
+  def close = source.close;
 
   /**
    * Returns an iterator that iterates by reading from this input.
@@ -72,13 +80,15 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
   }
 }
 
- 
 /**
  * Opaque type for writing binary values. It usually wraps a standard IO class.
  * It's currently implemented in terms of java.io.DataOutput, but this might change
  * in future releases.
  */
-class Output private[sbinary] (private[sbinary] val source : DataOutput){
+class Output private[sbinary] (private[sbinary] val source : DataOutput with Closeable){
+  /**
+   * Write an object of the specified type.
+   */
   def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this); 
   private[sbinary] def writeByte(byte : Byte) = source.writeByte(byte); 
 
@@ -87,7 +97,11 @@ class Output private[sbinary] (private[sbinary] val source : DataOutput){
     source.write(bytes);
   }
 
-  def writeAll[T](ts : Iterable[T])(implicit bin : Binary[T]) : Unit = ts.foreach(write(_ : T));
+  /**
+   * Close the underlying IO resource associated with this Output. 
+   */
+  def close = source.close;
+
 }
 
 /**
@@ -127,8 +141,8 @@ object Operations{
     case y => new Input(new DataInputStream(y));
   }
  
-  implicit def wrapOutput(out : DataOutput) : Output = new Output(out);
-  implicit def wrapInput(out : DataInput) : Input = new Input(out);
+  implicit def wrapOutput(out : DataOutput with Closeable) : Output = new Output(out);
+  implicit def wrapInput(out : DataInput with Closeable) : Input = new Input(out);
 
   /**
    * Returns the implicitly available binary instance for the provided type.
@@ -192,27 +206,27 @@ object Operations{
 object Instances{
   import Operations._;
 
-  implicit val UnitIsBinary : Binary[Unit] = new Binary[Unit]{
+  implicit val unitIsBinary : Binary[Unit] = new Binary[Unit]{
     def reads(in : Input) = ((), 0);
     def writes(t : Unit)(out : Output) = ();
   }
 
-  implicit val StringIsBinary : Binary[String] = new Binary[String]{
+  implicit val stringIsBinary : Binary[String] = new Binary[String]{
     def reads(in : Input) = in.source.readUTF();
     def writes(t : String)(out : Output) = out.source.writeUTF(t); 
   }
 
-  implicit val BooleanIsBinary : Binary[Boolean] = new Binary[Boolean]{
+  implicit val booleanIsBinary : Binary[Boolean] = new Binary[Boolean]{
     def reads(in : Input) = in.readByte != 0
     def writes(t : Boolean)(out : Output) = out.writeByte(if (t) (0x01) else (0x00));
   }
 
-  implicit val ByteIsBinary : Binary[Byte] = new Binary[Byte]{
+  implicit val byteIsBinary : Binary[Byte] = new Binary[Byte]{
     def reads(in : Input) = in.readByte
     def writes(t : Byte)(out : Output) = out.writeByte(t);
   }
 
-  implicit val CharIsBinary : Binary[Char] = new Binary[Char]{
+  implicit val charIsBinary : Binary[Char] = new Binary[Char]{
     def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toChar;
     def writes(t : Char)(out : Output) = {
       out.writeByte(((t >>> 8) & 0xFF).toByte);
@@ -220,7 +234,7 @@ object Instances{
     }
   }
 
-  implicit val ShortIsBinary : Binary[Short] = new Binary[Short]{
+  implicit val shortIsBinary : Binary[Short] = new Binary[Short]{
     def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toShort
 
     def writes(t : Short)(out : Output) = {
@@ -229,7 +243,7 @@ object Instances{
     } 
   }
 
-  implicit val IntIsBinary : Binary[Int] = new Binary[Int]{
+  implicit val intIsBinary : Binary[Int] = new Binary[Int]{
     def reads(in : Input) = {
       val ch1 = in.readUnsigned;
       val ch2 = in.readUnsigned;
@@ -246,7 +260,7 @@ object Instances{
     } 
   }
 
-  implicit val LongIsBinary : Binary[Long] = new Binary[Long]{
+  implicit val longIsBinary : Binary[Long] = new Binary[Long]{
     def reads(in : Input) = ((in.readUnsigned.toLong << 56) +
                 ((in.readUnsigned.toLong & 255).toLong << 48) +
             		((in.readUnsigned.toLong & 255) << 40) +
@@ -267,27 +281,27 @@ object Instances{
     }
   }
 
-  implicit val FloatIsBinary : Binary[Float] = new Binary[Float]{
+  implicit val floatIsBinary : Binary[Float] = new Binary[Float]{
     def reads(in : Input) = java.lang.Float.intBitsToFloat(in.read[Int])
     def writes(t : Float)(out : Output) = out.write[Int](java.lang.Float.floatToIntBits(t));
   }
 
-  implicit val DoubleIsBinary : Binary[Double] = new Binary[Double]{
+  implicit val doubleIsBinary : Binary[Double] = new Binary[Double]{
     def reads(in : Input) = java.lang.Double.longBitsToDouble(in.read[Long]);
     def writes(t : Double)(out : Output) = out.write[Long](java.lang.Double.doubleToLongBits(t));
   }
 
-  implicit val BigIntIsBinary : Binary[BigInt] = new Binary[BigInt]{
+  implicit val bigIntIsBinary : Binary[BigInt] = new Binary[BigInt]{
     def reads(in : Input) = BigInt(in.read[Array[Byte]]);
     def writes(i : BigInt)(out : Output) = out.write(i.toByteArray);
   }
 
-  implicit val BigDecimalIsBinary : Binary[BigDecimal] = new Binary[BigDecimal]{
+  implicit val bigDecimalIsBinary : Binary[BigDecimal] = new Binary[BigDecimal]{
     def reads(in : Input) = BigDecimal(in.read[String]);
     def writes(d : BigDecimal)(out : Output) = out.write(d.toString);
   }
 
-  implicit val ClassIsBinary : Binary[Class[T] forSome { type T }] = new Binary[Class[T] forSome {type T;}]{
+  implicit val classIsBinary : Binary[Class[T] forSome { type T }] = new Binary[Class[T] forSome {type T;}]{
     def reads(in : Input) = Class.forName(in.read[String]);
     def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
   }

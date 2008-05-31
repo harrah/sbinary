@@ -12,9 +12,9 @@ TEST_LIB_DIR        = File.join(Rake.original_dir, "test-lib")
 CLASSPATH           = FileList["build", "#{LIB_DIR}/**/*.jar"]; 
 TEST_CLASSPATH      = FileList["#{TEST_LIB_DIR}/**/*.jar"] + CLASSPATH
 
-VERSION             = "0.2"
+SBINARY_VERSION     = "0.2"
 
-JAR_FILE            = "sbinary-#{VERSION}.jar"
+JAR_FILE            = "sbinary-#{SBINARY_VERSION}.jar"
 
 load_jvm(CLASSPATH + TEST_CLASSPATH, [])
 

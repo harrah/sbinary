@@ -21,14 +21,14 @@ object Generic {
     def build(size : Int, ts : Iterator[T]) : S;
 
     def reads(in : Input) = { val size = in.read[Int]; build(size, in.asIterator[T].take(size)) }
-    def writes(ts : S)(out : Output) = { out.write(ts.size); out.writeAll(ts); }
+    def writes(ts : S)(out : Output) = { out.write(ts.size); ts.foreach(out.write); }
   }
 
   /**
    * Length encodes, but with the result built from an array. 
    */
   def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Binary[T]) : Binary[S] = new Binary[S] {
-    def writes(xs : S)(out : Output) = { out.write(xs.size); out.writeAll(xs); }
+    def writes(xs : S)(out : Output) = { out.write(xs.size); xs.foreach(out.write); }
     def reads(in : Input) = f(in.read[Array[T]]);
   }
 
