@@ -31,14 +31,19 @@ object LazyIOTests extends Properties("LazyIO"){
 }
 
 object BinaryTests extends Properties("Binaries"){
+  def validBinary[T](implicit 
+                     bin : Binary[T], 
+                     arb : Arbitrary[T],
+                    equal : Equal[T]) = property((x : T) => 
+      try { equal(x, fromByteArray[T](toByteArray(x))) } catch {
+        case (e : Throwable) => e.printStackTrace; throw e;
+      })
+
   def binarySpec[T](name : String)(implicit 
                      bin : Binary[T], 
                      arb : Arbitrary[T],
                     equal : Equal[T]) = 
-    specify(name, (x : T) => 
-      try { equal(x, fromByteArray[T](toByteArray(x))) } catch {
-        case (e : Throwable) => e.printStackTrace; throw e;
-      }) 
+    specify(name, validBinary[T]) 
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
@@ -48,6 +53,8 @@ object BinaryTests extends Properties("Binaries"){
   implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] =  Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*)))
 
   implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
+
+  implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x : _*){}));
 
   implicit def orderedOption[T](opt : Option[T])(implicit ord : T => Ordered[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
     def compare(that : Option[T]) = (opt, that) match {

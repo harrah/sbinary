@@ -83,23 +83,11 @@ object Generic {
     }
   }
 
-  /**
-   * Binary instance for values of a specific enumeration.
-   */
-  def enumValues[V <: Enumeration#Value](e : Enumeration { type Value = V }) : Binary[V] =
-    new Binary[V] {
-      def reads(in : Input) = e(in.read[Int]).asInstanceOf[V]
-      def writes(v : V)(out : Output) = out.write(v.id)
-    }
-
-
   <#list 1..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**
    * Represents this type as ${i} consecutive binary blocks of type T1..T${i},
    * relative to the specified way of decomposing and composing S as such.
-   *  
-   * This still needs some work. It's a bit painful to use.
    */
   def asProduct${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
    <#list 1..i as j>
@@ -120,35 +108,9 @@ object Generic {
     }  
 </#list>
 
-<#list 1..9 as i>
-  /**
-   * Builds a binary representation for a case class with ${i} fields.
-   */
-  <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
-  def fromCaseClass${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Some[Product${i}[${typeParams}]])(implicit
-   <#list 1..i as j>
-      bin${j} : Binary[T${j}] <#if i != j>,</#if>
-    </#list>) = new Binary[S]{
-       def reads (in : Input) : S = apply(
-      <#list 1..i as j>
-         in.read[T${j}]<#if i != j>,</#if>
-      </#list>
-      )
-
-      def writes(s : S)(out : Output) = {
-        val Some(product) = unapply(s);
-        <#list 1..i as j>
-          out.write(product._${j});
-        </#list>;       
-      }
-    }  
-</#list>
-
 <#list 2..9 as i>
   /**
-   * Uses a single tag byte to represent S as a union of ${i} subtypes. The specified
-   * operation is a 'fold', used to build a function over S from a list of functions
-   * over the Ti. 
+   * Uses a single tag byte to represent S as a union of ${i} subtypes. 
    */
   def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](
     <#list 1..i as j>
