@@ -12,30 +12,16 @@ import Instances._;
 import scalaz.Equal;
 import scalaz.Equal._;
 
-object BinaryTests extends Application{
-  def test[T](prop : T => Boolean)(implicit arb : Arbitrary[T]) = {
-    check(property(prop)).result match {
-      case GenException(e) => e.printStackTrace();
-      case PropException(_, e) => e.printStackTrace();
-      case x => println(x);
-    }
-  }
+object BinaryTests extends Properties("Binaries"){
+  def binarySpec[T](name : String)(implicit 
+                     bin : Binary[T], 
+                     arb : Arbitrary[T],
+                    equal : Equal[T]) = 
+    specify(name, (x : T) => 
+      equal(x, fromByteArray[T](toByteArray(x))))
 
-  def testBinaryProperties[T](name : String)(implicit 
-                               bin : Binary[T], 
-                               arb : Arbitrary[T],
-                             equal : Equal[T]) = {
-    println(name);
-    test((x : T) => equal(x, fromByteArray[T](toByteArray(x))))
-    false;
-  }
+  implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
-  implicit val arbitraryUnit =Arbitrary[Unit](value(() => ()))
-
-  implicit def equalTrees[K, V](implicit equal : Equal[List[(K, V)]]) : Equal[immutable.SortedMap[K, V]] = new Equal[immutable.SortedMap[K, V]]{
-    override def apply(x : immutable.SortedMap[K, V], y : immutable.SortedMap[K, V]) = equal(x.toList, y.toList);
-  }
-     
   implicit def arbitraryMap[K, V](implicit arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.Map[K, V]] =
     Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x))
 
@@ -68,6 +54,7 @@ object BinaryTests extends Application{
 
   implicit val FooIsEq = EqualA[Foo]
   implicit def setsAreEq[T] = EqualA[immutable.Set[T]]
+  implicit def sortedMapsAreEq[K, V] = EqualA[immutable.SortedMap[K, V]]
 
   sealed abstract class BinaryTree;
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
@@ -94,80 +81,61 @@ object BinaryTests extends Application{
 
   implicit val arbitraryLong : Arbitrary[Long] = Arbitrary[Long](for (x <- arbitrary[Int]; y <- arbitrary[Int]) yield ((x.toLong << 32) + y));
 
-  // No Arbitrary instances for these. Write some.
-  // testBinaryProperties[Short]("Short");
-  // testBinaryProperties[Float]("Float");
+  binarySpec[Boolean]("Boolean");
+  binarySpec[Byte]("Byte");
+  binarySpec[Char]("Char");
+  binarySpec[Int]("Int");
+  binarySpec[Double]("Double");
+  binarySpec[Long]("Long");
 
+  binarySpec[Unit]("Unit");
 
-  println("Primitives");
-  testBinaryProperties[Boolean]("Boolean");
-  testBinaryProperties[Byte]("Byte");
-  testBinaryProperties[Char]("Char");
-  testBinaryProperties[Int]("Int");
-  testBinaryProperties[Double]("Double");
-  testBinaryProperties[Long]("Long");
+  binarySpec[String]("String")
 
-  println
-  testBinaryProperties[Unit]("Unit");
+  binarySpec[(Int, Int, Int)]("(Int, Int, Int)");
+  binarySpec[(String, Int, String)]("(String, Int, String)")
+  binarySpec[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
+  binarySpec[(String, String)]("(String, String)")
 
-  println
-  testBinaryProperties[String]("String")
-
-  println ("Tuples")
-  testBinaryProperties[(Int, Int, Int)]("(Int, Int, Int)");
-  testBinaryProperties[(String, Int, String)]("(String, Int, String)")
-  testBinaryProperties[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
-  testBinaryProperties[(String, String)]("(String, String)")
-
-  println
-  println("Options");
-  testBinaryProperties[Option[String]]("Option[String]");
-  testBinaryProperties[(Option[String], String)]("(Option[String], String)");
-  testBinaryProperties[Option[Option[Int]]]("Option[Option[Int]]");
+  binarySpec[Option[String]]("Option[String]");
+  binarySpec[(Option[String], String)]("(Option[String], String)");
+  binarySpec[Option[Option[Int]]]("Option[Option[Int]]");
   
-  println
-  println("Lists");
-  testBinaryProperties[List[String]]("List[String]");
-  testBinaryProperties[List[(String, Int)]]("List[(String, Int)]");
-  testBinaryProperties[List[Option[Int]]]("List[Option[Int]]");
-  testBinaryProperties[List[Unit]]("List[Unit]");
+  binarySpec[List[String]]("List[String]");
+  binarySpec[List[(String, Int)]]("List[(String, Int)]");
+  binarySpec[List[Option[Int]]]("List[Option[Int]]");
+  binarySpec[List[Unit]]("List[Unit]");
 
-  println
-  println("immutable.Sets");
-  testBinaryProperties[immutable.Set[String]]("immutable.Set[String]");
-  testBinaryProperties[immutable.Set[(String, Int)]]("immutable.Set[(String, Int)]");
-  testBinaryProperties[immutable.Set[Option[Int]]]("immutable.Set[Option[Int]]");
-  testBinaryProperties[immutable.Set[Unit]]("immutable.Set[Unit]");
+  binarySpec[immutable.Set[String]]("immutable.Set[String]");
+  binarySpec[immutable.Set[(String, Int)]]("immutable.Set[(String, Int)]");
+  binarySpec[immutable.Set[Option[Int]]]("immutable.Set[Option[Int]]");
+  binarySpec[immutable.Set[Unit]]("immutable.Set[Unit]");
 
-  println
-  println("Arrays");
-  testBinaryProperties[String]("Array[String]");
-  testBinaryProperties[Array[String]]("Array]Array[String]]");
-  testBinaryProperties[List[Int]]("Array[List[Int]]");
-  testBinaryProperties[Option[Byte]]("Array[Option[Byte]]");
-  testBinaryProperties[Byte]("Array[Byte]");
-  testBinaryProperties[(Int, Int)]("Array[(Int, Int)]");
+  binarySpec[String]("Array[String]");
+  binarySpec[Array[String]]("Array]Array[String]]");
+  binarySpec[List[Int]]("Array[List[Int]]");
+  binarySpec[Option[Byte]]("Array[Option[Byte]]");
+  binarySpec[Byte]("Array[Byte]");
+  binarySpec[(Int, Int)]("Array[(Int, Int)]");
 
-  println
-  println("Maps");
-  testBinaryProperties[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
-  testBinaryProperties[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
-  testBinaryProperties[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
+  binarySpec[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
+  binarySpec[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
+  binarySpec[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
 
   println("immutable.SortedMaps tests currently disabled");
-//  testBinaryProperties[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
-//  testBinaryProperties[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
-//  testBinaryProperties[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
-//  testBinaryProperties[immutable.SortedMap[List[Int], Int]]("immutable.SortedMap[List[Int], String]");
+  binarySpec[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
+  binarySpec[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
+  binarySpec[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
+//  binarySpec[immutable.SortedMap[List[Int], Int]]("immutable.SortedMap[List[Int], String]");
 
   println
   println("Foo (from generic combinators)")
-  testBinaryProperties[Foo]("Foo")
-  testBinaryProperties[(Foo, Foo)]("(Foo, Foo)")
-  testBinaryProperties[Array[Foo]]("Array[Foo]")
+  binarySpec[Foo]("Foo")
+  binarySpec[(Foo, Foo)]("(Foo, Foo)")
+  binarySpec[Array[Foo]]("Array[Foo]")
 
   println
   println("BinaryTree");
-  testBinaryProperties[BinaryTree]("BinaryTree");
-  testBinaryProperties[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
+  binarySpec[BinaryTree]("BinaryTree");
+  binarySpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
 }

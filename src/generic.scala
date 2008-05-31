@@ -83,7 +83,6 @@ object Generic {
     }
   }
 
-
   /**
    * Binary instance for values of a specific enumeration.
    */
@@ -114,6 +113,30 @@ object Generic {
 
       def writes(s : S)(out : Output) = {
         val product = unapply(s);
+        <#list 1..i as j>
+          out.write(product._${j});
+        </#list>;       
+      }
+    }  
+</#list>
+
+<#list 1..9 as i>
+  /**
+   * Builds a binary representation for a case class with ${i} fields.
+   */
+  <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
+  def fromCaseClass${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Some[Product${i}[${typeParams}]])(implicit
+   <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i != j>,</#if>
+    </#list>) = new Binary[S]{
+       def reads (in : Input) : S = apply(
+      <#list 1..i as j>
+         in.read[T${j}]<#if i != j>,</#if>
+      </#list>
+      )
+
+      def writes(s : S)(out : Output) = {
+        val Some(product) = unapply(s);
         <#list 1..i as j>
           out.write(product._${j});
         </#list>;       
