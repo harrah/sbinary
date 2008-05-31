@@ -8,11 +8,23 @@ import mutable.ListBuffer;
 import Instances._;
 import sbinary.generic.Generic._;
 
+/**
+ * Opaque type for reading binary values. It usually wraps a standard IO class.
+ * It's currently implemented in terms of java.io.DataInput, but this might change
+ * in future releases.
+ */
 class Input private[sbinary] (private[sbinary] val source : DataInput){
   def read[S](implicit bin : Binary[S]) : S = { forceLazyIO; bin.reads(this); }
 
   private[sbinary] def readByte : Byte = source.readByte;
   private[sbinary] def readUnsigned : Int = source.readByte & 255;
+
+  private[sbinary] def readByteArray : Array[Byte] = {
+    val len = read[Int];
+    val bytes = new Array[Byte](len);
+    source.readFully(bytes);
+    bytes;
+  }
 
   private[sbinary] var streamInProgress = false;
   private[sbinary] var pendingStream : Stream[_] = null;
@@ -35,6 +47,7 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
       } finally { streamInProgress = false }
     } else {
       // We're inside another stream. Current solution is to read this stream strictly.
+      // This is a bit nasty. :(
       val buffer = new mutable.ListBuffer[S];
 
       do {
@@ -44,6 +57,7 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
       buffer.toStream;
     }
   }
+
 
   /**
    * Returns an iterator that iterates by reading from this input.
@@ -57,10 +71,22 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
     def next = read[S];
   }
 }
+
  
+/**
+ * Opaque type for writing binary values. It usually wraps a standard IO class.
+ * It's currently implemented in terms of java.io.DataOutput, but this might change
+ * in future releases.
+ */
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
   def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this); 
   private[sbinary] def writeByte(byte : Byte) = source.writeByte(byte); 
+
+  private[sbinary] def writeByteArray(bytes : Array[Byte]) = {
+    write(bytes.length);
+    source.write(bytes);
+  }
+
   def writeAll[T](ts : Iterable[T])(implicit bin : Binary[T]) : Unit = ts.foreach(write(_ : T));
 }
 
@@ -82,7 +108,7 @@ trait Binary[T]{
   def reads(in : Input) : T;
 
   /**
-   * Write a T to the Output. Return the number of bytes written.
+   * Write a T to the Output. 
    */
   def writes(t : T)(out : Output) : Unit; 
 }
@@ -104,8 +130,9 @@ object Operations{
   implicit def wrapOutput(out : DataOutput) : Output = new Output(out);
   implicit def wrapInput(out : DataInput) : Input = new Input(out);
 
-  implicit def fileByName(name : String) : File = new File(name);
-
+  /**
+   * Returns the implicitly available binary instance for the provided type.
+   */
   def binary[T](implicit bin : Binary[T]) = bin;
 
   /**
@@ -126,7 +153,7 @@ object Operations{
    */
   def toByteArray[T](t : T)(implicit bin : Binary[T]) : Array[Byte] = {
     val target = new ByteArrayOutputStream();
-    wrapOutputStream(target).write(t);
+    output(target).write(t);
     target.toByteArray(); 
   }
  
@@ -142,7 +169,7 @@ object Operations{
   def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
     val out = new BufferedOutputStream(new FileOutputStream(file));
     try{
-      (out : Output).write(toByteArray(t));}
+      output(out).write(toByteArray(t));}
     finally{
       out.close(); }
   }
@@ -153,7 +180,7 @@ object Operations{
   def fromFile[T](file : File)(implicit bin : Binary[T]) = {
     val in = new BufferedInputStream(new FileInputStream(file))
     try{
-      (in : Input).read[T]}
+      input(in).read[T]}
     finally{
       in.close(); }
   }
@@ -165,27 +192,27 @@ object Operations{
 object Instances{
   import Operations._;
 
-  implicit object UnitIsBinary extends Binary[Unit]{
+  implicit val UnitIsBinary : Binary[Unit] = new Binary[Unit]{
     def reads(in : Input) = ((), 0);
     def writes(t : Unit)(out : Output) = ();
   }
 
-  implicit object StringIsBinary extends Binary[String]{
+  implicit val StringIsBinary : Binary[String] = new Binary[String]{
     def reads(in : Input) = in.source.readUTF();
     def writes(t : String)(out : Output) = out.source.writeUTF(t); 
   }
 
-  implicit object BooleanIsBinary extends Binary[Boolean]{
+  implicit val BooleanIsBinary : Binary[Boolean] = new Binary[Boolean]{
     def reads(in : Input) = in.readByte != 0
     def writes(t : Boolean)(out : Output) = out.writeByte(if (t) (0x01) else (0x00));
   }
 
-  implicit object ByteIsBinary extends Binary[Byte]{
+  implicit val ByteIsBinary : Binary[Byte] = new Binary[Byte]{
     def reads(in : Input) = in.readByte
     def writes(t : Byte)(out : Output) = out.writeByte(t);
   }
 
-  implicit object CharIsBinary extends Binary[Char]{
+  implicit val CharIsBinary : Binary[Char] = new Binary[Char]{
     def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toChar;
     def writes(t : Char)(out : Output) = {
       out.writeByte(((t >>> 8) & 0xFF).toByte);
@@ -193,7 +220,7 @@ object Instances{
     }
   }
 
-  implicit object ShortIsBinary extends Binary[Short]{
+  implicit val ShortIsBinary : Binary[Short] = new Binary[Short]{
     def reads(in : Input) = ((in.readUnsigned << 8) + in.readUnsigned).toShort
 
     def writes(t : Short)(out : Output) = {
@@ -202,7 +229,7 @@ object Instances{
     } 
   }
 
-  implicit object IntIsBinary extends Binary[Int]{
+  implicit val IntIsBinary : Binary[Int] = new Binary[Int]{
     def reads(in : Input) = {
       val ch1 = in.readUnsigned;
       val ch2 = in.readUnsigned;
@@ -219,7 +246,7 @@ object Instances{
     } 
   }
 
-  implicit object LongIsBinary extends Binary[Long]{
+  implicit val LongIsBinary : Binary[Long] = new Binary[Long]{
     def reads(in : Input) = ((in.readUnsigned.toLong << 56) +
                 ((in.readUnsigned.toLong & 255).toLong << 48) +
             		((in.readUnsigned.toLong & 255) << 40) +
@@ -240,27 +267,27 @@ object Instances{
     }
   }
 
-  implicit object FloatIsBinary extends Binary[Float]{
+  implicit val FloatIsBinary : Binary[Float] = new Binary[Float]{
     def reads(in : Input) = java.lang.Float.intBitsToFloat(in.read[Int])
     def writes(t : Float)(out : Output) = out.write[Int](java.lang.Float.floatToIntBits(t));
   }
 
-  implicit object DoubleIsBinary extends Binary[Double]{
+  implicit val DoubleIsBinary : Binary[Double] = new Binary[Double]{
     def reads(in : Input) = java.lang.Double.longBitsToDouble(in.read[Long]);
     def writes(t : Double)(out : Output) = out.write[Long](java.lang.Double.doubleToLongBits(t));
   }
 
-  implicit object BigIntIsBinary extends Binary[BigInt]{
+  implicit val BigIntIsBinary : Binary[BigInt] = new Binary[BigInt]{
     def reads(in : Input) = BigInt(in.read[Array[Byte]]);
     def writes(i : BigInt)(out : Output) = out.write(i.toByteArray);
   }
 
-  implicit object BigDecimalIsBinary extends Binary[BigDecimal]{
+  implicit val BigDecimalIsBinary : Binary[BigDecimal] = new Binary[BigDecimal]{
     def reads(in : Input) = BigDecimal(in.read[String]);
     def writes(d : BigDecimal)(out : Output) = out.write(d.toString);
   }
 
-  implicit object ClassIsBinary extends Binary[Class[T] forSome {type T;}]{
+  implicit val ClassIsBinary : Binary[Class[T] forSome { type T }] = new Binary[Class[T] forSome {type T;}]{
     def reads(in : Input) = Class.forName(in.read[String]);
     def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
   }
@@ -274,7 +301,7 @@ object Instances{
 
 
   import scala.xml.{XML, Elem, NodeSeq};
-  implicit object xmlIsBinary extends Binary[NodeSeq]{
+  implicit val xmlIsBinary : Binary[NodeSeq] = new Binary[NodeSeq]{
     def reads(in : Input) = XML.loadString(in.read[String]).child;
     def writes(elem : NodeSeq)(out : Output) = out.write(<binary>elem</binary>.toString);
   }
@@ -297,14 +324,14 @@ object Instances{
       }
     }
 
+  implicit val byteArraysAreBinary : Binary[Array[Byte]] = new Binary[Array[Byte]]{
+    def reads(in : Input) = in.readByteArray
+    def writes(bytes : Array[Byte])(out : Output) = out.writeByteArray(bytes) 
+  }
 
   implicit def mutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[mutable.Set[T]] = 
     viaArray((x : Array[T]) => mutable.Set(x :_*))
 
-/*
-  implicit def mutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[mutable.Map[S, T]] =
-    viaArray( (x : Array[(S, T)]) => mutable.Map(x :_*));
-*/
   implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = 
     viaArray((x : Array[T]) => immutable.Set(x :_*))
 
@@ -330,11 +357,10 @@ object Instances{
    * Warning! The resulting Stream is read lazily. However, reading anything else
    * that is not part of the stream will force the entire stream to be read. 
    *
-   * Additonal warning: Due to an implementation restriction in the current approach
-   * for handling lazy IO, given something of the form Stream[Stream[S]] the individual
-   * streams will each be read strictly even though the outer one will not.
-   * 
-   * This limitation should be lifted when SBinary gets better laziness support.
+   * Additional warning: Due to an implementation restriction in the current approach
+   * for handling lazy IO, given something of the form Stream[Stream[S]] only the outer most 
+   * stream will be read lazily. The inner streams will each be read strictly. This limitation
+   * should be lifted when SBinary gets better laziness support.
    */
   implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
     def reads(in : Input) = in.readStream[S] 
