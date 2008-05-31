@@ -18,16 +18,30 @@ class Input private[sbinary] (private[sbinary] val source : DataInput){
   private[sbinary] var pendingStream : Stream[_] = null;
   private[sbinary] def forceLazyIO = 
     if (!streamInProgress && pendingStream != null) pendingStream.length
-  
+ 
+  /**
+   * Special support for reading streams lazily. I plan to deprecate
+   * this with a more general lazy IO strategy, but for now this seems
+   * simplest.
+   */ 
   private[sbinary] def readStream[S](implicit bin : Binary[S]) : Stream[S] = {
     if (readByte == 0) { Stream.empty }
-    else {
+    else if (!streamInProgress){
       streamInProgress = true;
       try{
         val result = Stream.cons(bin.reads(this), readStream[S]);
         pendingStream = result;
         result;
       } finally { streamInProgress = false }
+    } else {
+      // We're inside another stream. Current solution is to read this stream strictly.
+      val buffer = new mutable.ListBuffer[S];
+
+      do {
+        buffer += read[S]
+      } while (readByte != 0);
+      
+      buffer.toStream;
     }
   }
 
@@ -93,6 +107,19 @@ object Operations{
   implicit def fileByName(name : String) : File = new File(name);
 
   def binary[T](implicit bin : Binary[T]) = bin;
+
+  /**
+   * Identity function on Input. Used for forcing things which may be
+   * implicitly converted to one to be of the right type.
+   */
+  def input(in : Input) = in;
+
+
+  /**
+   * Identity function on Output. Used for forcing things which may be
+   * implicitly converted to one to be of the right type.
+   */
+  def output(out : Output) = out;
 
   /**
    * Get the serialized value of this class as a byte array.
@@ -270,6 +297,14 @@ object Instances{
       }
     }
 
+
+  implicit def mutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[mutable.Set[T]] = 
+    viaArray((x : Array[T]) => mutable.Set(x :_*))
+
+/*
+  implicit def mutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[mutable.Map[S, T]] =
+    viaArray( (x : Array[(S, T)]) => mutable.Map(x :_*));
+*/
   implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = 
     viaArray((x : Array[T]) => immutable.Set(x :_*))
 
@@ -292,8 +327,14 @@ object Instances{
    * This is to ensure proper laziness behaviour - values will be written as they
    * become available rather than thunking the entire stream up front. 
    * 
-   * Warning! The resulting Stream is read lazily. Be sure to force it before
-   * reading anything else from the input stream. 
+   * Warning! The resulting Stream is read lazily. However, reading anything else
+   * that is not part of the stream will force the entire stream to be read. 
+   *
+   * Additonal warning: Due to an implementation restriction in the current approach
+   * for handling lazy IO, given something of the form Stream[Stream[S]] the individual
+   * streams will each be read strictly even though the outer one will not.
+   * 
+   * This limitation should be lifted when SBinary gets better laziness support.
    */
   implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
     def reads(in : Input) = in.readStream[S] 

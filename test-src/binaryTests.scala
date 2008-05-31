@@ -23,6 +23,11 @@ object LazyIOTests extends Properties("LazyIO"){
     val (u, s, v) = fromByteArray[(Stream[Int], String, Stream[Int])](toByteArray((x, y, z)))
     equal(u, x) && equal(s, y) && equal(z, v); 
   });
+
+  specify("StreamsOfStreams", (x : Stream[Stream[Int]]) => !x.isEmpty ==> {
+    val x2 = fromByteArray[Stream[Stream[Int]]](toByteArray(x));
+    equal(x(x.length - 1), x2(x.length - 1));
+  });
 }
 
 object BinaryTests extends Properties("Binaries"){
@@ -129,6 +134,7 @@ object BinaryTests extends Properties("Binaries"){
   binarySpec[String]("Array[String]");
   binarySpec[Array[String]]("Array[String]]");
   binarySpec[Array[List[Int]]]("Array[List[Int]]");
+  binarySpec[Array[Stream[Int]]]("Array[Stream[Int]]");
   binarySpec[Array[Option[Byte]]]("Array[Option[Byte]]");
   binarySpec[Array[Byte]]("Array[Byte]");
   binarySpec[Array[(Int, Int)]]("Array[(Int, Int)]");
@@ -139,6 +145,7 @@ object BinaryTests extends Properties("Binaries"){
   binarySpec[Stream[Option[Byte]]]("Stream[Option[Byte]]");
   binarySpec[Stream[Byte]]("Stream[Byte]");
   binarySpec[Stream[(Int, Int)]]("Stream[(Int, Int)]");
+  binarySpec[Stream[Stream[Int]]]("Stream[Stream[Int]]");
 
   binarySpec[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
   binarySpec[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
