@@ -9,27 +9,44 @@ import Instances._;
 import sbinary.generic.Generic._;
 
 class Input private[sbinary] (private[sbinary] val source : DataInput){
-  def read[S](implicit bin : Binary[S]) : S = bin.reads(this);
+  def read[S](implicit bin : Binary[S]) : S = { forceLazyIO; bin.reads(this); }
 
-  def readByte : Byte = source.readByte;
-  def readUnsigned : Int = source.readByte & 255;
+  private[sbinary] def readByte : Byte = source.readByte;
+  private[sbinary] def readUnsigned : Int = source.readByte & 255;
+
+  private[sbinary] var streamInProgress = false;
+  private[sbinary] var pendingStream : Stream[_] = null;
+  private[sbinary] def forceLazyIO = 
+    if (!streamInProgress && pendingStream != null) pendingStream.length
+  
+  private[sbinary] def readStream[S](implicit bin : Binary[S]) : Stream[S] = {
+    if (readByte == 0) { Stream.empty }
+    else {
+      streamInProgress = true;
+      try{
+        val result = Stream.cons(bin.reads(this), readStream[S]);
+        pendingStream = result;
+        result;
+      } finally { streamInProgress = false }
+    }
+  }
 
   /**
-   * Treat this input as a stream, where the head is produced by reading 
-   * an S from the input. 
-   * The results of calling read while iterating this stream are undefined.   
+   * Returns an iterator that iterates by reading from this input.
+   * In order to ensure proper laziness properties (and not reading more
+   * data than is strictly neccessary) this will always return true 
+   * from hasNext but may throw an EOFException on an unexpected end
+   * of stream.
    */
-  def asStream[S](implicit bin : Binary[S]) : Stream[S] = Stream.cons(read[S], asStream[S]);  
-
   def asIterator[S](implicit bin : Binary[S]) = new Iterator[S]{
     def hasNext = true;
     def next = read[S];
   }
 }
-
+ 
 class Output private[sbinary] (private[sbinary] val source : DataOutput){
   def write[T](t : T)(implicit bin : Binary[T]) : Unit = bin.writes(t)(this); 
-  def writeByte(byte : Byte) = source.writeByte(byte); 
+  private[sbinary] def writeByte(byte : Byte) = source.writeByte(byte); 
   def writeAll[T](ts : Iterable[T])(implicit bin : Binary[T]) : Unit = ts.foreach(write(_ : T));
 }
 
@@ -96,24 +113,22 @@ object Operations{
    * Convenience method for writing binary data to a file.
    */
   def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
-    val raf = new RandomAccessFile(file, "rw");
+    val out = new BufferedOutputStream(new FileOutputStream(file));
     try{
-      raf.write(toByteArray(t));}
+      (out : Output).write(toByteArray(t));}
     finally{
-      raf.close(); }
+      out.close(); }
   }
 
   /** 
    * Convenience method for reading binary data from a file.
    */
   def fromFile[T](file : File)(implicit bin : Binary[T]) = {
-    val raf = new RandomAccessFile(file, "rw");
+    val in = new BufferedInputStream(new FileInputStream(file))
     try{
-      val bytes =new Array[Byte](raf.length().intValue);
-      raf.readFully(bytes);
-      fromByteArray[T](bytes);}
+      (in : Input).read[T]}
     finally{
-      raf.close(); }
+      in.close(); }
   }
 }
 
@@ -281,7 +296,7 @@ object Instances{
    * reading anything else from the input stream. 
    */
   implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
-    def reads(in : Input) = if (in.read[Byte] == 0) Stream.empty else Stream.cons(in.read[S], reads(in))
+    def reads(in : Input) = in.readStream[S] 
 
     def writes(stream : Stream[S])(out : Output){
       stream.foreach(x => { out.write[Byte](1); out.write(x); });

@@ -40,7 +40,7 @@ task :compiletests => :compile do
 end
 
 task :test => :compiletests do
-  sh "scala -cp \"#{TEST_CLASSPATH.to_cp}\" sbinary.BinaryTests"
+  sh "scala -cp \"#{TEST_CLASSPATH.to_cp}\" #{ENV["TEST"] || "sbinary.BinaryTests"}"
 end
 
 task :doc => :generate do 

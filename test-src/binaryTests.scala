@@ -12,13 +12,28 @@ import Instances._;
 import scalaz.Equal;
 import scalaz.Equal._;
 
+object LazyIOTests extends Properties("LazyIO"){
+  import java.io._;
+  specify("NoMixingOfStreams", (x : Stream[Int]) => { 
+    val (u, v) = fromByteArray[(Stream[Int], Stream[Int])](toByteArray((x, x)))
+    equal(u, v) && equal(u, x); 
+  });
+
+  specify("NoMixingOfStreamsAndOthers", (x : Stream[Int], y : String, z : Stream[Int]) => { 
+    val (u, s, v) = fromByteArray[(Stream[Int], String, Stream[Int])](toByteArray((x, y, z)))
+    equal(u, x) && equal(s, y) && equal(z, v); 
+  });
+}
+
 object BinaryTests extends Properties("Binaries"){
   def binarySpec[T](name : String)(implicit 
                      bin : Binary[T], 
                      arb : Arbitrary[T],
                     equal : Equal[T]) = 
     specify(name, (x : T) => 
-      equal(x, fromByteArray[T](toByteArray(x))))
+      try { equal(x, fromByteArray[T](toByteArray(x))) } catch {
+        case (e : Throwable) => e.printStackTrace; throw e;
+      }) 
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
@@ -112,30 +127,33 @@ object BinaryTests extends Properties("Binaries"){
   binarySpec[immutable.Set[Unit]]("immutable.Set[Unit]");
 
   binarySpec[String]("Array[String]");
-  binarySpec[Array[String]]("Array]Array[String]]");
-  binarySpec[List[Int]]("Array[List[Int]]");
-  binarySpec[Option[Byte]]("Array[Option[Byte]]");
-  binarySpec[Byte]("Array[Byte]");
-  binarySpec[(Int, Int)]("Array[(Int, Int)]");
+  binarySpec[Array[String]]("Array[String]]");
+  binarySpec[Array[List[Int]]]("Array[List[Int]]");
+  binarySpec[Array[Option[Byte]]]("Array[Option[Byte]]");
+  binarySpec[Array[Byte]]("Array[Byte]");
+  binarySpec[Array[(Int, Int)]]("Array[(Int, Int)]");
+
+  binarySpec[String]("Stream[String]");
+  binarySpec[Stream[String]]("Stream]Stream[String]]");
+  binarySpec[Stream[List[Int]]]("Stream[List[Int]]");
+  binarySpec[Stream[Option[Byte]]]("Stream[Option[Byte]]");
+  binarySpec[Stream[Byte]]("Stream[Byte]");
+  binarySpec[Stream[(Int, Int)]]("Stream[(Int, Int)]");
 
   binarySpec[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
   binarySpec[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
   binarySpec[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
 
-  println("immutable.SortedMaps tests currently disabled");
   binarySpec[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
   binarySpec[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
   binarySpec[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
-//  binarySpec[immutable.SortedMap[List[Int], Int]]("immutable.SortedMap[List[Int], String]");
 
-  println
-  println("Foo (from generic combinators)")
   binarySpec[Foo]("Foo")
   binarySpec[(Foo, Foo)]("(Foo, Foo)")
   binarySpec[Array[Foo]]("Array[Foo]")
 
-  println
-  println("BinaryTree");
   binarySpec[BinaryTree]("BinaryTree");
   binarySpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
+
+  include(LazyIOTests);
 }
