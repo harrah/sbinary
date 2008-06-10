@@ -8,6 +8,129 @@ import mutable.ListBuffer;
 import Instances._;
 import sbinary.generic.Generic._;
 
+trait Protocol{
+  type Input <: InputTrait;
+  type Output <: OutputTrait;
+
+  trait InputTrait{
+    self : Input =>
+    def read[S](implicit bin : Binary[S]) : S = bin.reads(self); 
+    def close : Unit;
+
+    /**
+     * Returns an iterator that iterates by reading from this input.
+     * In order to ensure proper laziness properties (and not reading more
+     * data than is strictly neccessary) this will always return true 
+     * from hasNext but may throw an EOFException on an unexpected end
+     * of stream.
+     */
+    def asIterator[S](implicit bin : Binary[S]) = new Iterator[S]{
+      def hasNext = true;
+      def next = read[S];
+    }
+
+    // See if you can come up with a good way of removing these.
+    def readByte : Byte;
+    def readUnsigned : Int;
+    def readStream[T](implicit bin : Binary[T]) : Stream[T];
+  }
+
+  trait OutputTrait{
+    self : Output =>
+    def write[S](s : S)(implicit bin : Binary[S]) = bin.writes(s)(self);
+    def close : Unit;
+  }
+
+
+  /**
+   * Trait for marshaling type T to and from binary data. 
+   *
+   * Because of the possibility of marshalling mutable types this library 
+   * doesn't make any strong guarantees about equality. In general implementations
+   * should make a best effort to ensure that read(write(t)) is in some sense equal
+   * to t. This sense should be == if possible, but e.g. arrays are chosen so that
+   * their contents are equal.  
+   * 
+   * Instances must be independent of platform and network byte order.  
+   */
+  trait Binary[T]{
+    /**
+     * Read a T from the Input, reading no more data than is neccessary.
+     */
+    def reads(in : Input) : T;
+
+    /**
+     * Write a T to the Output. 
+     */
+    def writes(t : T)(out : Output) : Unit; 
+  }
+
+  /**
+   * Conversion from a java.io OutputStream into an Output.
+   */
+  implicit def wrapOutputStream(output : OutputStream) : Output;
+
+  /**
+   * Conversion from a java.io InputStream into an Input.
+   */
+  implicit def wrapInputStream(output : InputStream) : Input;
+
+  /**
+   * Identity function on Input. Used for forcing things which may be
+   * implicitly converted to one to be of the right type.
+   */
+  def input(in : Input) = in;
+
+
+  /**
+   * Identity function on Output. Used for forcing things which may be
+   * implicitly converted to one to be of the right type.
+   */
+  def output(out : Output) = out;
+
+  /**
+   * Returns the implicitly available binary instance for the provided type.
+   */
+  def binary[T](implicit bin : Binary[T]) = bin;
+
+  /**
+   * Get the serialized value of this class as a byte array.
+   */
+  def toByteArray[T](t : T)(implicit bin : Binary[T]) : Array[Byte] = {
+    val target = new ByteArrayOutputStream();
+    output(target).write(t);
+    target.toByteArray(); 
+  }
+ 
+  /**
+   * Read a value from the byte array. Anything past the end of the value will be
+   * ignored.
+   */ 
+  def fromByteArray[T](array : Array[Byte])(implicit bin : Binary[T]) = wrapInputStream(new ByteArrayInputStream(array)).read[T];
+
+  /** 
+   * Convenience method for writing binary data to a file.
+   */
+  def toFile[T](t : T)(file : File)(implicit bin : Binary[T]) = {
+    val out = new BufferedOutputStream(new FileOutputStream(file));
+    try{
+      output(out).write(t);}
+    finally{
+      out.close(); }
+  }
+
+  /** 
+   * Convenience method for reading binary data from a file.
+   */
+  def fromFile[T](file : File)(implicit bin : Binary[T]) = {
+    val in = new BufferedInputStream(new FileInputStream(file))
+    try{
+      input(in).read[T]}
+    finally{
+      in.close(); }
+  }
+}
+
 /**
  * Opaque type for reading binary values. It usually wraps a standard IO class.
  * It's currently implemented in terms of java.io.DataInput, but this might change
@@ -59,7 +182,6 @@ class Input private[sbinary] (private[sbinary] val source : DataInput with Close
       
       buffer.toStream;
     }
-
   }
 
   /**
@@ -103,30 +225,6 @@ class Output private[sbinary] (private[sbinary] val source : DataOutput with Clo
   def close = source.close;
 
 }
-
-/**
- * Trait for marshaling type T to and from binary data. 
- *
- * Because of the possibility of marshalling mutable types this library 
- * doesn't make any strong guarantees about equality. In general implementations
- * should make a best effort to ensure that read(write(t)) is in some sense equal
- * to t. This sense should be == if possible, but e.g. arrays are chosen so that
- * their contents are equal.  
- * 
- * Instances must be independent of platform and network byte order.  
- */
-trait Binary[T]{
-  /**
-   * Read a T from the Input, reading no more data than is neccessary.
-   */
-  def reads(in : Input) : T;
-
-  /**
-   * Write a T to the Output. 
-   */
-  def writes(t : T)(out : Output) : Unit; 
-}
-
 /**
  * Standard operations on binary types
  */
@@ -141,9 +239,6 @@ object Operations{
     case y => new Input(new DataInputStream(y));
   }
  
-  implicit def wrapOutput(out : DataOutput with Closeable) : Output = new Output(out);
-  implicit def wrapInput(out : DataInput with Closeable) : Input = new Input(out);
-
   /**
    * Returns the implicitly available binary instance for the provided type.
    */
@@ -199,6 +294,286 @@ object Operations{
       in.close(); }
   }
 }
+
+trait CoreProtocol extends Protocol{
+  implicit val unitIsBinary : Binary[Unit] = new Binary[Unit]{
+    def reads(in : Input) = ((), 0);
+    def writes(t : Unit)(out : Output) = ();
+  }
+
+  implicit val stringIsBinary : Binary[String];
+  implicit val booleanIsBinary : Binary[Boolean];
+  implicit val byteIsBinary : Binary[Byte];
+  implicit val charIsBinary : Binary[Char];
+  implicit val shortIsBinary : Binary[Short];
+  implicit val intIsBinary : Binary[Int];
+  implicit val longIsBinary : Binary[Long];
+  implicit val floatIsBinary : Binary[Float];
+  implicit val doubleIsBinary : Binary[Double];
+
+  implicit def arraysAreBinary[T](implicit binary : Binary[T]) : Binary[Array[T]]
+  implicit val byteArraysAreBinary : Binary[Array[Byte]]
+}
+
+/**
+ * Generic operations for creating binary instances
+ */
+trait Generic extends CoreProtocol{
+  /** 
+   * Binary instance which encodes the collection by first writing the length
+   * of the collection as an int, then writing the collection elements in order.
+   */
+  abstract class LengthEncoded[S <: Collection[T], T](implicit binT : Binary[T]) extends Binary[S]{
+    def build(size : Int, ts : Iterator[T]) : S;
+
+    def reads(in : Input) = { val size = in.read[Int]; build(size, in.asIterator[T].take(size)) }
+    def writes(ts : S)(out : Output) = { out.write(ts.size); ts.foreach(out.write); }
+  }
+
+  /**
+   * Length encodes, but with the result built from an array. 
+   */
+  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Binary[T], binarrayA : Binary[Array[T]]) : Binary[S] = new Binary[S] {
+    def writes(xs : S)(out : Output) = { out.write(xs.size); xs.foreach(out.write); }
+    def reads(in : Input) = f(in.read[Array[T]]);
+  }
+
+  /**
+   * Encodes and decodes via some String representation.
+   */
+  def viaString[T](f : String => T) = new Binary[T]{
+    def reads(in : Input) = f(in.read[String]);
+    def writes(t : T)(out : Output) = out.write(t.toString);
+  }
+  
+  /**
+   * Trivial serialization. Writing is a no-op, reading always returns this instance.
+   */
+  def asSingleton[T](t : T) : Binary[T] = new Binary[T]{
+    def reads(in : Input) = t
+    def writes(t : T)(out : Output) = ();
+  }
+
+  /**
+   * Serializes this via a bijection to some other type. 
+   */
+  def wrap[S, T](to : S => T, from : T => S)(implicit bin : Binary[T]) = new Binary[S]{
+    def reads(in : Input) = from(in.read[T]);
+    def writes(s : S)(out : Output) = out.write(to(s));
+  }
+
+  /**
+   * Lazy wrapper around a binary. Useful when you want e.g. mutually recursive binary instances.
+   */
+  def lazyBinary[S](bin : =>Binary[S]) = new Binary[S]{
+    lazy val delegate = bin;
+
+    def reads(in : Input) = delegate.reads(in);
+    def writes(s : S)(out : Output) = delegate.writes(s)(out);
+  }
+
+  /**
+   * Attaches a stamp to the data. This stamp is placed at the beginning of the format and may be used
+   * to verify the integrity of the data (e.g. a magic number for the data format version). 
+   */
+  def withStamp[S, T](stamp : S)(binary : Binary[T])(implicit binS : Binary[S]) : Binary[T] = new Binary[T]{
+    def reads(in : Input) = {
+      val datastamp = in.read[S];
+      if (stamp != datastamp) error("Incorrect stamp. Expected: " + stamp + ", Found: " + datastamp);
+      binary.reads(in);
+    }
+
+    def writes(t : T)(out : Output) = {
+      out.write(stamp);
+      binary.writes(t)(out);
+    }
+  }
+
+  <#list 2..9 as i> 
+  <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
+  /**
+   * Represents this type as ${i} consecutive binary blocks of type T1..T${i},
+   * relative to the specified way of decomposing and composing S as such.
+   */
+  def asProduct${i}[S, ${typeParams}](apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit
+   <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i != j>,</#if>
+    </#list>) = new Binary[S]{
+       def reads (in : Input) : S = apply(
+      <#list 1..i as j>
+         in.read[T${j}]<#if i != j>,</#if>
+      </#list>
+      )
+
+      def writes(s : S)(out : Output) = {
+        val product = unapply(s);
+        <#list 1..i as j>
+          out.write(product._${j});
+        </#list>;       
+      }
+    }  
+</#list>
+
+<#list 2..9 as i>
+  /**
+   * Uses a single tag byte to represent S as a union of ${i} subtypes. 
+   */
+  def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](
+    <#list 1..i as j>
+      clazz${j} : Class[T${j}]<#if i!=j>,<#else>)(implicit </#if>       
+    </#list>
+    <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i!=j>,<#else>) : Binary[S] = new Binary[S]{</#if>
+    </#list>
+      def reads (in : Input) = 
+        in.read[Byte] match {
+          <#list 1..i as j>
+            case ${j} => in.read[T${j}]
+          </#list>
+        }
+
+      def writes (s : S)(out : Output) = 
+          <#list 1..i as j>
+            if (clazz${j}.isInstance(s)){
+              out.write[Byte](${j});
+              out.write[T${j}](s.asInstanceOf[T${j}]);        
+            } else <#if i==j>error("Unrecognised object: " + s);</#if>
+          </#list>
+    } 
+</#list>
+
+}
+
+trait DefaultInstances extends Generic{
+  implicit val bigIntIsBinary : Binary[BigInt] = new Binary[BigInt]{
+    def reads(in : Input) = BigInt(in.read[Array[Byte]]);
+    def writes(i : BigInt)(out : Output) = out.write(i.toByteArray);
+  }
+
+  implicit val bigDecimalIsBinary : Binary[BigDecimal] = new Binary[BigDecimal]{
+    def reads(in : Input) = BigDecimal(in.read[String]);
+    def writes(d : BigDecimal)(out : Output) = out.write(d.toString);
+  }
+
+  implicit val classIsBinary : Binary[Class[T] forSome { type T }] = new Binary[Class[T] forSome {type T;}]{
+    def reads(in : Input) = Class.forName(in.read[String]);
+    def writes(clazz : Class[T] forSome { type T; })(out : Output) = out.write(clazz.getName);
+  }
+
+  implicit val symbolIsBinary : Binary[Symbol] = viaString(Symbol(_));
+  implicit val fileIsBinary : Binary[File] = viaString(new File(_ : String));
+
+  import java.net.{URI, URL}
+  implicit val urlIsBinary : Binary[URL] = viaString(new URL(_ : String));
+  implicit val uriIsBinary : Binary[URI] = viaString(new URI(_ : String));
+
+
+  import scala.xml.{XML, Elem, NodeSeq};
+  implicit val xmlIsBinary : Binary[NodeSeq] = new Binary[NodeSeq]{
+    def reads(in : Input) = XML.loadString(in.read[String]).child;
+    def writes(elem : NodeSeq)(out : Output) = out.write(<binary>elem</binary>.toString);
+  }
+
+  implicit def listsAreBinary[T](implicit bin : Binary[T]) : Binary[List[T]] = 
+    new LengthEncoded[List[T], T]{
+      def build(length : Int, ts : Iterator[T]) = {
+        val buffer = new ListBuffer[T];
+        ts.foreach(buffer += (_ : T));
+        buffer.toList;
+      } 
+    }
+
+  implicit def arraysAreBinary[T](implicit bin : Binary[T]) : Binary[Array[T]] = 
+    new LengthEncoded[Array[T], T]{
+      def build(length : Int, ts : Iterator[T]) = {
+        val result = new Array[T](length);
+        ts.copyToArray(result, 0);
+        result;
+      }
+    }
+
+  // Yes, I really mean you should use this one...
+  implicit val byteArraysAreBinary : Binary[Array[Byte]];
+
+  implicit def mutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[mutable.Set[T]] = 
+    viaArray((x : Array[T]) => mutable.Set(x :_*))
+
+  implicit def immutableSetsAreBinary[T](implicit bin : Binary[T]) : Binary[immutable.Set[T]] = 
+    viaArray((x : Array[T]) => immutable.Set(x :_*))
+
+  implicit def immutableSortedSetsAreBinary[S](implicit ord : S => Ordered[S], binS : Binary[S]) : Binary[immutable.SortedSet[S]] = 
+    viaArray( (x : Array[S]) => immutable.TreeSet[S](x :_*))
+
+  implicit def immutableMapsAreBinary[S, T](implicit binS : Binary[S], binT : Binary[T]) : Binary[immutable.Map[S, T]] =
+    viaArray( (x : Array[(S, T)]) => immutable.Map(x :_*));
+
+  implicit def immutableSortedMapsAreBinary[S, T](implicit ord : S => Ordered[S], binS : Binary[S], binT : Binary[T]) : Binary[immutable.SortedMap[S, T]] =
+    viaArray( (x : Array[(S, T)]) => TreeMap[S, T](x :_*))
+
+  /**
+   * Binary instance for streams.
+   * Note that unlike almost all other collections this is not length encoded
+   * Instead it is encoded with a sequence of byte separators, with a single
+   * byte value of 1 preceding each element to be read and a value of 0 indicating
+   * the stream termination.
+   *
+   * This is to ensure proper laziness behaviour - values will be written as they
+   * become available rather than thunking the entire stream up front. 
+   * 
+   * Warning! The resulting Stream is read lazily. However, reading anything else
+   * that is not part of the stream will force the entire stream to be read. 
+   *
+   * Additional warning: Due to an implementation restriction in the current approach
+   * for handling lazy IO, given something of the form Stream[Stream[S]] only the outer most 
+   * stream will be read lazily. The inner streams will each be read strictly. This limitation
+   * should be lifted when SBinary gets better laziness support.
+   */
+  implicit def streamsAreBinary[S](implicit bin : Binary[S]) : Binary[Stream[S]] = new Binary[Stream[S]]{
+    def reads(in : Input) = in.readStream[S] 
+
+    def writes(stream : Stream[S])(out : Output){
+      stream.foreach(x => { out.write[Byte](1); out.write(x); });
+      out.write[Byte](0);
+    }
+  }
+
+  implicit def optionsAreBinary[S](implicit bin : Binary[S]) : Binary[Option[S]] = new Binary[Option[S]]{
+    def reads(in : Input) = in.read[Byte] match {
+      case 1 => Some(in.read[S]);
+      case 0 => None
+    }
+
+    def writes(s : Option[S])(out : Output) = s match {
+      case Some(x) => { out.write[Byte](0x1); out.write(x) }
+      case None => out.write[Byte](0x0);
+    }
+  }
+
+<#list 2..22 as i>
+  <#assign typeName>
+   Tuple${i}[<#list 1..i as j>T${j} <#if i != j>,</#if></#list>]
+  </#assign>
+  implicit def tuple${i}sAreBinary[<#list 1..i as j>T${j}<#if i !=j>,</#if></#list>](implicit 
+    <#list 1..i as j>
+      bin${j} : Binary[T${j}] <#if i != j>,</#if>
+    </#list>
+    ) : Binary[${typeName}] = new Binary[${typeName}]{
+      def reads (in : Input) : ${typeName} = ( 
+    <#list 1..i as j>
+        in.read[T${j}]<#if i!=j>,</#if>
+    </#list>
+      )
+    
+      def writes(tuple : ${typeName})(out : Output) = {
+      <#list 1..i as j>
+        out.write(tuple._${j});      
+      </#list>;
+      }
+  }
+</#list>
+
+}
+
 
 /**
  * Implicit instances for many standard types.
