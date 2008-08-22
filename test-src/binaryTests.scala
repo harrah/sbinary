@@ -9,10 +9,35 @@ import scala.collection._;
 import Operations._;
 import Instances._;
 
-import scalaz.Equal;
-import scalaz.Equal._;
+object Equal{
+  abstract class Equal[T] extends Function2[T, T, Boolean];
+
+
+  implicit def allAreEqual[T] : Equal[T] = new Equal[T]{
+    println("default");
+    def apply(x : T, y : T) = x == y
+  }
+
+  implicit def arraysAreEqual[T](implicit e : Equal[T]) : Equal[Array[T]] = new Equal[Array[T]]{
+    println("Array");
+    def apply(x : Array[T], y : Array[T]) = (x.length == y.length) &&  x.zip(y).forall({case (x, y) => e(x, y)})
+  }
+
+  implicit def streamsAreEqual[T](implicit e : Equal[T]) : Equal[Stream[T]] = new Equal[Stream[T]]{
+    println("string");
+    def apply(x : Stream[T], y : Stream[T]) = (x.length == y.length) &&  x.zip(y).forall({case (x, y) => e(x, y)})
+  }
+
+  def equal[T](x : T, y : T)(implicit f : Equal[T]) = f(x, y);
+
+
+}
+
+import Equal._;
+
 
 object LazyIOTests extends Properties("LazyIO"){
+
   import java.io._;
   specify("NoMixingOfStreams", (x : Stream[Int]) => { 
     val (u, v) = fromByteArray[(Stream[Int], Stream[Int])](toByteArray((x, x)))
@@ -47,9 +72,6 @@ object BinaryTests extends Properties("Binaries"){
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
-  implicit def arbitraryMap[K, V](implicit arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.Map[K, V]] =
-    Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.Map.empty ++ x))
-
   implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] =  Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*)))
 
   implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
@@ -72,28 +94,24 @@ object BinaryTests extends Properties("Binaries"){
   case class Baz (string : String) extends Foo;
 
   implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar())
-  implicit val BazIsBinary : Binary[Baz] = asProduct1(Baz)( (x : Baz) => Tuple1(x.string))  
-  implicit val FooIsBinary  : Binary[Foo] = asUnion2 (classOf[Bar], classOf[Baz])
+  implicit val BazIsBinary : Binary[Baz] = viaString(Baz)
+  implicit val FooIsBinary  : Binary[Foo] = asUnion[Foo](classOf[Bar], classOf[Baz])
 
   implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](arbitrary[Boolean].flatMap( (bar : Boolean) =>
                             if (bar) value(Bar) else arbitrary[String].map(Baz(_))))
   
 
-  implicit val FooIsEq = EqualA[Foo]
-  implicit def setsAreEq[T] = EqualA[immutable.Set[T]]
-  implicit def sortedMapsAreEq[K, V] = EqualA[immutable.SortedMap[K, V]]
 
   sealed abstract class BinaryTree;
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
   case class Leaf extends BinaryTree;
 
-  implicit val BinaryTreeIsEq = EqualA[BinaryTree];
 
   implicit val BinaryTreeIsBinary : Binary[BinaryTree] = lazyBinary({
     implicit val binaryLeaf = asSingleton(Leaf());
 
     implicit val binarySplit : Binary[Split] = asProduct2((x : BinaryTree, y : BinaryTree) => Split(x, y))((s : Split) => (s.left, s.right));
-    asUnion2(classOf[Leaf], classOf[Split]);
+    asUnion[BinaryTree](classOf[Leaf], classOf[Split]);
   })
 
   implicit val arbitraryTree : Arbitrary[BinaryTree] = {
@@ -105,8 +123,6 @@ object BinaryTests extends Properties("Binaries"){
                ) yield (Split(left, right));
     Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
   }
-
-  implicit val arbitraryLong : Arbitrary[Long] = Arbitrary[Long](for (x <- arbitrary[Int]; y <- arbitrary[Int]) yield ((x.toLong << 32) + y));
 
   binarySpec[Boolean]("Boolean");
   binarySpec[Byte]("Byte");

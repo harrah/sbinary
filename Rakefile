@@ -36,14 +36,16 @@ task :dist => [:clean, :compile] do
   sh "mv #{JAR_FILE} dist"
 end
 
-task :compiletests => :compile do
+task :compiletests do 
   sh "fmpp --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
   sh "fsc -cp \"#{TEST_CLASSPATH.to_cp}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
 end
 
-task :test => :compiletests do
+task :runtests do
   sh "scala -cp \"#{TEST_CLASSPATH.to_cp}\" #{ENV["TEST"] || "sbinary.BinaryTests"}"
 end
+
+task :test => [:compiletests, :runtests]
 
 task :doc => :generate do 
   mkdir_p "doc" unless File.exists? "doc"

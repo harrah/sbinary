@@ -108,32 +108,29 @@ object Generic {
     }  
 </#list>
 
-<#list 2..9 as i>
+  case class Summand[T](clazz : Class[T], format : Binary[T]);
+  implicit def classToSummand[T](clazz : Class[T])(implicit bin : Binary[T]) = Summand(clazz, bin);
+
   /**
-   * Uses a single tag byte to represent S as a union of ${i} subtypes. 
+   * Uses a single tag byte to represent S as a union of subtypes. 
    */
-  def asUnion${i}[S, <#list 1..i as j>T${j} <: S<#if i !=j>,</#if></#list>](
-    <#list 1..i as j>
-      clazz${j} : Class[T${j}]<#if i!=j>,<#else>)(implicit </#if>       
-    </#list>
-    <#list 1..i as j>
-      bin${j} : Binary[T${j}] <#if i!=j>,<#else>) : Binary[S] = new Binary[S]{</#if>
-    </#list>
-      def reads (in : Input) = 
-        in.read[Byte] match {
-          <#list 1..i as j>
-            case ${j} => in.read[T${j}]
-          </#list>
+  def asUnion[S](summands : Summand[_ <: S]*) : Binary[S] = 
+    if (summands.length >= 256) error("Sums of 256 or more elements currently not supported");
+    else
+    new Binary[S]{
+      val mappings = summands.toArray.zipWithIndex;
+
+      def reads (in : Input) : S = in.read(summands(in.read[Byte]).format)
+
+      def writes (s : S)(out : Output) {
+        for ((sum, i) <- mappings){
+          if (sum.clazz.isInstance(s)) {
+            out.write(i.toByte);
+            out.write(sum.clazz.cast(s))(sum.format);
+            return;
+          }
         }
-
-      def writes (s : S)(out : Output) = 
-          <#list 1..i as j>
-            if (clazz${j}.isInstance(s)){
-              out.write[Byte](${j});
-              out.write[T${j}](s.asInstanceOf[T${j}]);        
-            } else <#if i==j>error("Unrecognised object: " + s);</#if>
-          </#list>
+        error("No known sum type for object " + s);
+      }
     } 
-</#list>
-
 }
