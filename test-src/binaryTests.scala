@@ -13,18 +13,52 @@ object Equal{
   abstract class Equal[T] extends Function2[T, T, Boolean];
 
 
-  implicit def allAreEqual[T] : Equal[T] = new Equal[T]{
-    println("default");
+  def allAreEqual[T] : Equal[T] = new Equal[T]{
     def apply(x : T, y : T) = x == y
   }
 
+  implicit val eqString = allAreEqual[String];
+  implicit val eqInt = allAreEqual[Int];
+  implicit val eqLong = allAreEqual[Long];
+  implicit val eqBoolean = allAreEqual[Boolean];
+  implicit val eqUnit = allAreEqual[Unit];
+  implicit val eqByte = allAreEqual[Byte];
+  implicit val eqDouble = allAreEqual[Double];
+  implicit val eqChar = allAreEqual[Char];
+  implicit def eqSet[T] = allAreEqual[immutable.Set[T]];
+  implicit def eqSortedSet[T] = allAreEqual[immutable.SortedSet[T]];
+  implicit def eqMap[S,T] = allAreEqual[immutable.Map[S,T]];
+  implicit def eqSortedMap[S,T] = allAreEqual[immutable.SortedMap[S,T]];
+
+  implicit def eqList[T](implicit eqT : Equal[T]) : Equal[List[T]] = new Equal[List[T]]{
+    def apply(x : List[T], y : List[T]) = (x, y) match {
+      case (Nil, Nil) => true;
+      case (x :: xs, y :: ys) => eqT(x, y) && apply(xs, ys);
+      case _ => false;
+    }
+  }
+
+  implicit def eqOption[T](implicit eqT : Equal[T]) : Equal[Option[T]] = new Equal[Option[T]]{
+    def apply(x : Option[T], y : Option[T]) = (x, y) match {
+      case (None, None) => true;
+      case (Some(u), Some(v)) => eqT(u, v); 
+      case _ => false;
+    }
+  }
+
+  implicit def eqTuple3[S, T, U](implicit eqS : Equal[S], eqT : Equal[T], eqU : Equal[U]) : Equal[(S, T, U)] = new Equal[(S, T, U)]{
+    def apply(x : (S, T, U), y : (S, T, U)) = eqS(x._1, y._1) && eqT(x._2, y._2) && eqU(x._3, y._3);
+  }
+
+  implicit def eqTuple2[S, T](implicit eqS : Equal[S], eqT : Equal[T]) : Equal[(S, T)] = new Equal[(S, T)]{
+    def apply(x : (S, T), y : (S, T)) = eqS(x._1, y._1) && eqT(x._2, y._2)
+  }
+
   implicit def arraysAreEqual[T](implicit e : Equal[T]) : Equal[Array[T]] = new Equal[Array[T]]{
-    println("Array");
     def apply(x : Array[T], y : Array[T]) = (x.length == y.length) &&  x.zip(y).forall({case (x, y) => e(x, y)})
   }
 
   implicit def streamsAreEqual[T](implicit e : Equal[T]) : Equal[Stream[T]] = new Equal[Stream[T]]{
-    println("string");
     def apply(x : Stream[T], y : Stream[T]) = (x.length == y.length) &&  x.zip(y).forall({case (x, y) => e(x, y)})
   }
 
@@ -93,9 +127,13 @@ object BinaryTests extends Properties("Binaries"){
   case class Bar extends Foo;
   case class Baz (string : String) extends Foo;
 
+  implicit val eqFoo = allAreEqual[Foo]
+
   implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar())
   implicit val BazIsBinary : Binary[Baz] = viaString(Baz)
   implicit val FooIsBinary  : Binary[Foo] = asUnion[Foo](classOf[Bar], classOf[Baz])
+
+
 
   implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](arbitrary[Boolean].flatMap( (bar : Boolean) =>
                             if (bar) value(Bar) else arbitrary[String].map(Baz(_))))
@@ -106,6 +144,7 @@ object BinaryTests extends Properties("Binaries"){
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
   case class Leaf extends BinaryTree;
 
+  implicit val eqBinaryTree = allAreEqual[BinaryTree]
 
   implicit val BinaryTreeIsBinary : Binary[BinaryTree] = lazyBinary({
     implicit val binaryLeaf = asSingleton(Leaf());

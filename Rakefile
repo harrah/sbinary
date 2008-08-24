@@ -1,9 +1,4 @@
-require 'jerbil'
-
 TEMPLATES           = 'templates'
-
-SCALA_HOME          = ENV["SCALA_HOME"].gsub(/\\/, "/");
-SCALA_LIBS          = FileList["#{SCALA_HOME}/lib/**/*.jar"]
 
 LIB_DIR             = File.join(Rake.original_dir, "lib")
 NATIVE_LIB_DIR      = File.join(LIB_DIR, "native")
@@ -12,11 +7,12 @@ TEST_LIB_DIR        = File.join(Rake.original_dir, "test-lib")
 CLASSPATH           = FileList["build", "#{LIB_DIR}/**/*.jar"]; 
 TEST_CLASSPATH      = FileList["#{TEST_LIB_DIR}/**/*.jar"] + CLASSPATH
 
+CLASSPATH_STRING    = CLASSPATH.join(":");
+TEST_CLASSPATH_STRING    = TEST_CLASSPATH.join(":");
+
 SBINARY_VERSION     = "0.2"
 
 JAR_FILE            = "sbinary-#{SBINARY_VERSION}.jar"
-
-load_jvm(CLASSPATH + TEST_CLASSPATH, [])
 
 task :default => :compile
 
@@ -27,7 +23,7 @@ end
 
 task :compile => :generate do
   mkdir_p "build" unless File.exists? "build"
-  sh "fsc -cp \"#{CLASSPATH.to_cp}\" -d build #{FileList["generated/src/**/*.scala"]}"
+  sh "fsc -cp \"#{CLASSPATH_STRING}\" -d build #{FileList["generated/src/**/*.scala"]}"
 end
 
 task :dist => [:clean, :compile] do
@@ -38,11 +34,15 @@ end
 
 task :compiletests do 
   sh "fmpp --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
-  sh "fsc -cp \"#{TEST_CLASSPATH.to_cp}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
+  sh "fsc -cp \"#{TEST_CLASSPATH_STRING}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
 end
 
 task :runtests do
-  sh "scala -cp \"#{TEST_CLASSPATH.to_cp}\" #{ENV["TEST"] || "sbinary.BinaryTests"}"
+  sh "scala -cp \"#{TEST_CLASSPATH_STRING}\" #{ENV["TEST"] || "sbinary.BinaryTests"}"
+end
+
+task :shell do
+  sh "scala -cp \"#{TEST_CLASSPATH_STRING}\""
 end
 
 task :test => [:compiletests, :runtests]
