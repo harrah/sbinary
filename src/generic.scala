@@ -81,6 +81,17 @@ trait Generic extends CoreProtocol{
     }
   }
 
+  /**
+   * Create a format for an enumeration, representing values by their integer IDs.
+   *
+   * Note that due to type system limitations we cannot enforce that you pass the right Enumeration to this method.
+   * Be good.
+   */
+  def enumerationFormat[V <: Enumeration#Value](enumeration : Enumeration) = new Format[V]{
+    def reads(in : Input) = enumeration(read[Int](in)).asInstanceOf[V]
+    def writes(out : Output, value : V) = write(out, value.id)
+  }
+
   <#list 2..9 as i> 
   <#assign typeParams><#list 1..i as j>T${j}<#if i !=j>,</#if></#list></#assign>
   /**

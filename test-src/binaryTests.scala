@@ -189,6 +189,14 @@ object FormatTests extends Properties("Formats"){
     Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
   }
 
+  val SomeEnum = new Enumeration{
+    val Foo, Bar, Baz = Value;
+  }
+
+  implicit val SomeEnumFormat = enumerationFormat[SomeEnum.Value](SomeEnum)
+  implicit val SomeEnumEq = allAreEqual[SomeEnum.Value]
+  implicit val SomeEnumArb = Arbitrary[SomeEnum.Value](elements(SomeEnum.elements.toList :_*))
+
   formatSpec[Boolean]("Boolean");
   formatSpec[Byte]("Byte");
   formatSpec[Char]("Char");
@@ -249,6 +257,8 @@ object FormatTests extends Properties("Formats"){
 
   formatSpec[BinaryTree]("BinaryTree");
   formatSpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
+  
+  formatSpec[SomeEnum.Value]("SomeEnum.Value")
 
   include(LazyIOTests);
   include(CompatTests)
