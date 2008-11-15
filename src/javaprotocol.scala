@@ -46,12 +46,12 @@ trait StandardPrimitives extends CoreProtocol{
     def reads(in : Input) = 
                 (readUnsigned(in).toLong << 56) +
                 (readUnsigned(in).toLong << 48) +
-            		(readUnsigned(in) << 40) +
-                (readUnsigned(in) << 32) +
-                (readUnsigned(in) << 24) +
-                (readUnsigned(in) << 16) +
-                (readUnsigned(in) <<  8) +
-                (readUnsigned(in) <<  0);
+            		(readUnsigned(in).toLong << 40) +
+                (readUnsigned(in).toLong << 32) +
+                (readUnsigned(in).toLong << 24) +
+                (readUnsigned(in).toLong << 16) +
+                (readUnsigned(in).toLong <<  8) +
+                (readUnsigned(in).toLong <<  0);
     def writes(out : Output, t : Long) = {
       writeByte(out, (t >>> 56).toByte);
       writeByte(out, (t >>> 48).toByte);
