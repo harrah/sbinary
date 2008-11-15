@@ -76,8 +76,9 @@ trait StandardPrimitives extends CoreProtocol{
 }
 
 trait JavaUTF extends CoreProtocol{
+  private[this] def readUnsignedByte(in : Input) : Int = readByte(in).toInt & 0xFF
   private[this] def readUnsignedShort(in : Input) : Int = 
-    (readByte(in).toInt << 8) + readByte(in)
+    (readUnsignedByte(in) << 8) + readUnsignedByte(in)
 
   private[this] val buffers = new java.lang.ThreadLocal[(Array[Char], Array[Byte])]{
     override def initialValue() = (new Array[Char](80), new Array[Byte](80))
@@ -102,31 +103,38 @@ trait JavaUTF extends CoreProtocol{
       def malformed(index : Int) = error("Malformed input around byte " + index);
       def partial = error("Malformed input: Partial character at end");
 
+      while((count < utflen) && {c = bbuffer(count) & 0xff; c <= 127 }) {
+        cbuffer(charCount) = c.toChar;
+        charCount += 1;
+        count += 1;
+      }
+
       while(count < utflen){
         c = bbuffer(count).toInt & 0xFF
-        (c >> 4) match {
+        cbuffer(charCount) = ((c >> 4) match {
           case 0|1|2|3|4|5|6|7 => {
-            cbuffer(charCount) = c.toChar;
             count += 1;
+            c
           }
           case 12|13 => {
             count += 2;
-            if (count > utflen) 
-            char2 = bbuffer(count - 1).toInt;
+            if (count > utflen) partial;
+
+            char2 = bbuffer(count - 1)
             if ((char2 & 0xC0) != 0x80) malformed(count);
-            cbuffer(charCount) = (((c & 0x1F) << 6) | (char2 & 0x3F)).toChar;
+            (((c & 0x1F) << 6) | (char2 & 0x3F));
           }
           case 14 => {
             count += 3;
             char2 = bbuffer(count - 2);
             char3 = bbuffer(count - 1);
-            if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80)) malformed(count - 1)
-            cbuffer(charCount) = (((c     & 0x0F) << 12) |
-                                  ((char2 & 0x3F) << 6)  |
-                                  ((char3 & 0x3F) << 0)).toChar;
+            if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80)) 
+              malformed(count - 1);
+
+            ((c & 0x0F).toInt << 12) | ((char2 & 0x3F).toInt << 6)  | ((char3 & 0x3F).toInt << 0);
           }
           case _ => malformed(count);
-        }
+        }).toChar
         charCount += 1;
       }
 
@@ -136,40 +144,35 @@ trait JavaUTF extends CoreProtocol{
     def writes(out : Output, value : String){
       var utflen = 0;
       
-      {
-        var i = 0;
-        while(i < value.length){ 
-          val c = value.charAt(i);
-          utflen += (
-            if ((c >= 0x0001) && (c <= 0x007F)) 1
-	          else if (c > 0x07FF) 3
-		        else 2) 
-          i += 1;
-        }
-      }
+      var i = 0;
+      def c = value.charAt(i);  
 
-      
+      while(i < value.length){ 
+        utflen += (
+          if ((c >= 0x0001) && (c <= 0x007F)) 1
+          else if (c > 0x07FF) 3
+          else 2) 
+        i += 1;
+      }
+     
 	    if (utflen > 65535)
         error("encoded string too long: " + utflen + " bytes");
 
       val bbuffer = fetchBuffers(utflen + 2)._2;
-
-      bbuffer(0) = ((utflen >>> 8) & 0xFF).toByte
-      bbuffer(1) = (utflen & 0xFF).toByte
-
-      var count = 2;
-      
-      var i = 0;
-      def c = value.charAt(i);  
+      var count = 0;
       def append(value : Int) {
         bbuffer(count) = value.toByte;
         count += 1;
       }
 
-	    while((i < value.length) && !((c >= 0x0001) && (c <= 0x007F))) {
-        i += 1;
+      append((utflen >>> 8) & 0xFF)
+      append(utflen & 0xFF)
+
+      i = 0;
+	    while((i < value.length) && ((c >= 0x0001) && (c <= 0x007F))) {
         bbuffer(count) = c.toByte;
         count += 1; 
+        i += 1;
       }
  
       while(i < value.length){

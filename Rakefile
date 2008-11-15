@@ -38,7 +38,7 @@ task :compiletests do
 end
 
 task :runtests do
-  sh "scala -cp \"#{TEST_CLASSPATH_STRING}\" #{ENV["TEST"] || "sbinary.BinaryTests"}"
+  sh "scala -cp \"#{TEST_CLASSPATH_STRING}\" #{ENV["TEST"] || "sbinary.FormatTests"}"
 end
 
 task :shell do

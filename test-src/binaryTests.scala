@@ -6,8 +6,7 @@ import Arbitrary._;
 import Prop._;
 
 import scala.collection._;
-import Operations._;
-import Instances._;
+import DefaultProtocol._;
 
 object Equal{
   abstract class Equal[T] extends Function2[T, T, Boolean];
@@ -68,6 +67,25 @@ object Equal{
 
 import Equal._;
 
+object StringTests extends Properties("Strings"){
+  import java.io._;
+
+  specify("AgreesWithDataInput", (x : String) => {
+    val it = new ByteArrayOutputStream();
+    try { write(it, x); (new DataInputStream(new ByteArrayInputStream(it.toByteArray))).readUTF == x }
+    catch { case (e : Throwable) => e.printStackTrace; false }
+  });
+
+  specify("AgreesWithDataOutput", (x : String) => {    
+    val it = new ByteArrayOutputStream();
+    try { 
+      (new DataOutputStream(it)).writeUTF(x); 
+      val ba = it.toByteArray;
+      fromByteArray[String](ba).length == x.length
+    } catch { case (e : Throwable) => e.printStackTrace; false }
+  })
+}
+
 
 object LazyIOTests extends Properties("LazyIO"){
 
@@ -88,20 +106,20 @@ object LazyIOTests extends Properties("LazyIO"){
   });
 }
 
-object BinaryTests extends Properties("Binaries"){
-  def validBinary[T](implicit 
-                     bin : Binary[T], 
+object FormatTests extends Properties("Binaries"){
+  def validFormat[T](implicit 
+                     bin : Format[T], 
                      arb : Arbitrary[T],
                     equal : Equal[T]) = property((x : T) => 
       try { equal(x, fromByteArray[T](toByteArray(x))) } catch {
-        case (e : Throwable) => e.printStackTrace; throw e;
+        case (e : Throwable) => e.printStackTrace; false 
       })
 
-  def binarySpec[T](name : String)(implicit 
-                     bin : Binary[T], 
+  def formatSpec[T](name : String)(implicit 
+                     bin : Format[T], 
                      arb : Arbitrary[T],
                     equal : Equal[T]) = 
-    specify(name, validBinary[T]) 
+    specify(name, validFormat[T]) 
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
@@ -120,7 +138,6 @@ object BinaryTests extends Properties("Binaries"){
     }
   }
 
-  import generic.Generic._;
   trait Foo;
 
   case class Bar extends Foo;
@@ -128,9 +145,9 @@ object BinaryTests extends Properties("Binaries"){
 
   implicit val eqFoo = allAreEqual[Foo]
 
-  implicit val BarIsBinary : Binary[Bar] = asSingleton(Bar())
-  implicit val BazIsBinary : Binary[Baz] = viaString(Baz)
-  implicit val FooIsBinary  : Binary[Foo] = asUnion[Foo](classOf[Bar], classOf[Baz])
+  implicit val BarIsFormat : Format[Bar] = asSingleton(Bar())
+  implicit val BazIsFormat : Format[Baz] = viaString(Baz)
+  implicit val FooIsFormat  : Format[Foo] = asUnion[Foo](classOf[Bar], classOf[Baz])
 
 
 
@@ -145,10 +162,10 @@ object BinaryTests extends Properties("Binaries"){
 
   implicit val eqBinaryTree = allAreEqual[BinaryTree]
 
-  implicit val BinaryTreeIsBinary : Binary[BinaryTree] = lazyBinary({
-    implicit val binaryLeaf = asSingleton(Leaf());
+  implicit val BinaryTreeIsFormat : Format[BinaryTree] = lazyFormat({
+    implicit val formatLeaf = asSingleton(Leaf());
 
-    implicit val binarySplit : Binary[Split] = asProduct2((x : BinaryTree, y : BinaryTree) => Split(x, y))((s : Split) => (s.left, s.right));
+    implicit val formatSplit : Format[Split] = asProduct2((x : BinaryTree, y : BinaryTree) => Split(x, y))((s : Split) => (s.left, s.right));
     asUnion[BinaryTree](classOf[Leaf], classOf[Split]);
   })
 
@@ -162,66 +179,66 @@ object BinaryTests extends Properties("Binaries"){
     Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
   }
 
-  binarySpec[Boolean]("Boolean");
-  binarySpec[Byte]("Byte");
-  binarySpec[Char]("Char");
-  binarySpec[Int]("Int");
-  binarySpec[Double]("Double");
-  binarySpec[Long]("Long");
+  formatSpec[Boolean]("Boolean");
+  formatSpec[Byte]("Byte");
+  formatSpec[Char]("Char");
+  formatSpec[Int]("Int");
+  formatSpec[Double]("Double");
+  formatSpec[Long]("Long");
 
-  binarySpec[Unit]("Unit");
+  formatSpec[Unit]("Unit");
 
-  binarySpec[String]("String")
+  formatSpec[String]("String")
 
-  binarySpec[(Int, Int, Int)]("(Int, Int, Int)");
-  binarySpec[(String, Int, String)]("(String, Int, String)")
-  binarySpec[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
-  binarySpec[(String, String)]("(String, String)")
+  formatSpec[(Int, Int, Int)]("(Int, Int, Int)");
+  formatSpec[(String, Int, String)]("(String, Int, String)")
+  formatSpec[((Int, (String, Int), Int))]("((Int, (String, Int), Byte, Byte, Int))]");
+  formatSpec[(String, String)]("(String, String)")
 
-  binarySpec[Option[String]]("Option[String]");
-  binarySpec[(Option[String], String)]("(Option[String], String)");
-  binarySpec[Option[Option[Int]]]("Option[Option[Int]]");
+  formatSpec[Option[String]]("Option[String]");
+  formatSpec[(Option[String], String)]("(Option[String], String)");
+  formatSpec[Option[Option[Int]]]("Option[Option[Int]]");
   
-  binarySpec[List[String]]("List[String]");
-  binarySpec[List[(String, Int)]]("List[(String, Int)]");
-  binarySpec[List[Option[Int]]]("List[Option[Int]]");
-  binarySpec[List[Unit]]("List[Unit]");
+  formatSpec[List[String]]("List[String]");
+  formatSpec[List[(String, Int)]]("List[(String, Int)]");
+  formatSpec[List[Option[Int]]]("List[Option[Int]]");
+  formatSpec[List[Unit]]("List[Unit]");
 
-  binarySpec[immutable.Set[String]]("immutable.Set[String]");
-  binarySpec[immutable.Set[(String, Int)]]("immutable.Set[(String, Int)]");
-  binarySpec[immutable.Set[Option[Int]]]("immutable.Set[Option[Int]]");
-  binarySpec[immutable.Set[Unit]]("immutable.Set[Unit]");
+  formatSpec[immutable.Set[String]]("immutable.Set[String]");
+  formatSpec[immutable.Set[(String, Int)]]("immutable.Set[(String, Int)]");
+  formatSpec[immutable.Set[Option[Int]]]("immutable.Set[Option[Int]]");
+  formatSpec[immutable.Set[Unit]]("immutable.Set[Unit]");
 
-  binarySpec[String]("Array[String]");
-  binarySpec[Array[String]]("Array[String]]");
-  binarySpec[Array[List[Int]]]("Array[List[Int]]");
-  binarySpec[Array[Stream[Int]]]("Array[Stream[Int]]");
-  binarySpec[Array[Option[Byte]]]("Array[Option[Byte]]");
-  binarySpec[Array[Byte]]("Array[Byte]");
-  binarySpec[Array[(Int, Int)]]("Array[(Int, Int)]");
+  formatSpec[String]("Array[String]");
+  formatSpec[Array[String]]("Array[String]]");
+  formatSpec[Array[List[Int]]]("Array[List[Int]]");
+  formatSpec[Array[Stream[Int]]]("Array[Stream[Int]]");
+  formatSpec[Array[Option[Byte]]]("Array[Option[Byte]]");
+  formatSpec[Array[Byte]]("Array[Byte]");
+  formatSpec[Array[(Int, Int)]]("Array[(Int, Int)]");
 
-  binarySpec[String]("Stream[String]");
-  binarySpec[Stream[String]]("Stream]Stream[String]]");
-  binarySpec[Stream[List[Int]]]("Stream[List[Int]]");
-  binarySpec[Stream[Option[Byte]]]("Stream[Option[Byte]]");
-  binarySpec[Stream[Byte]]("Stream[Byte]");
-  binarySpec[Stream[(Int, Int)]]("Stream[(Int, Int)]");
-  binarySpec[Stream[Stream[Int]]]("Stream[Stream[Int]]");
+  formatSpec[String]("Stream[String]");
+  formatSpec[Stream[String]]("Stream]Stream[String]]");
+  formatSpec[Stream[List[Int]]]("Stream[List[Int]]");
+  formatSpec[Stream[Option[Byte]]]("Stream[Option[Byte]]");
+  formatSpec[Stream[Byte]]("Stream[Byte]");
+  formatSpec[Stream[(Int, Int)]]("Stream[(Int, Int)]");
+  formatSpec[Stream[Stream[Int]]]("Stream[Stream[Int]]");
 
-  binarySpec[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
-  binarySpec[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
-  binarySpec[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
+  formatSpec[immutable.Map[Int, Int]]("immutable.Map[Int, Int]");
+  formatSpec[immutable.Map[Option[String], Int]]("immutable.Map[Option[String], Int]");
+  formatSpec[immutable.Map[List[Int], Int]]("immutable.Map[List[Int], String]");
 
-  binarySpec[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
-  binarySpec[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
-  binarySpec[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
+  formatSpec[immutable.SortedMap[Int, Int]]("immutable.SortedMap[Int, Int]");
+  formatSpec[immutable.SortedMap[String, Int]]("immutable.SortedMap[String, Int]");
+  formatSpec[immutable.SortedMap[Option[String], Int]]("immutable.SortedMap[Option[String], Int]");
 
-  binarySpec[Foo]("Foo")
-  binarySpec[(Foo, Foo)]("(Foo, Foo)")
-  binarySpec[Array[Foo]]("Array[Foo]")
+  formatSpec[Foo]("Foo")
+  formatSpec[(Foo, Foo)]("(Foo, Foo)")
+  formatSpec[Array[Foo]]("Array[Foo]")
 
-  binarySpec[BinaryTree]("BinaryTree");
-  binarySpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
+  formatSpec[BinaryTree]("BinaryTree");
+  formatSpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
 
   include(LazyIOTests);
 }
