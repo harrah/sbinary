@@ -67,23 +67,32 @@ object Equal{
 
 import Equal._;
 
-object StringTests extends Properties("Strings"){
+object CompatTests extends Properties("CompatTests"){
   import java.io._;
 
-  specify("AgreesWithDataInput", (x : String) => {
-    val it = new ByteArrayOutputStream();
-    try { write(it, x); (new DataInputStream(new ByteArrayInputStream(it.toByteArray))).readUTF == x }
-    catch { case (e : Throwable) => e.printStackTrace; false }
-  });
+  def compatFor[T](name : String, readJ : DataInput => T, writeJ : (DataOutput, T) => Unit)(implicit fmt : Format[T], arb : Arbitrary[T]) = {
+    specify(name + "AgreesWithDataInput", (x : T) => {
+      val it = new ByteArrayOutputStream();
+      try { write(it, x); readJ(new DataInputStream(new ByteArrayInputStream(it.toByteArray))) == x }
+      catch { case (e : Throwable) => e.printStackTrace; false }
+    });
 
-  specify("AgreesWithDataOutput", (x : String) => {    
-    val it = new ByteArrayOutputStream();
-    try { 
-      (new DataOutputStream(it)).writeUTF(x); 
-      val ba = it.toByteArray;
-      fromByteArray[String](ba).length == x.length
-    } catch { case (e : Throwable) => e.printStackTrace; false }
-  })
+    specify(name + "AgreesWithDataOutput", (x : T) => {    
+      val it = new ByteArrayOutputStream();
+      try { 
+        writeJ(new DataOutputStream(it), x); 
+        val ba = it.toByteArray;
+        fromByteArray[T](ba) == x
+      } catch { case (e : Throwable) => e.printStackTrace; false }
+    })
+  }
+
+  compatFor[String]("String", _.readUTF, _.writeUTF(_)) 
+  compatFor[Long]("Long", _.readLong, _.writeLong(_))
+  compatFor[Int]("Int", _.readInt, _.writeInt(_))
+  compatFor[Byte]("Byte", _.readByte, _.writeByte(_))
+  compatFor[Double]("Double", _.readDouble, _.writeDouble(_))
+  compatFor[Boolean]("Boolean", _.readBoolean, _.writeBoolean(_))
 }
 
 
