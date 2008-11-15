@@ -12,7 +12,6 @@ import Instances._;
 object Equal{
   abstract class Equal[T] extends Function2[T, T, Boolean];
 
-
   def allAreEqual[T] : Equal[T] = new Equal[T]{
     def apply(x : T, y : T) = x == y
   }
