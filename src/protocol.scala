@@ -16,7 +16,15 @@ trait Protocol extends IO{
     def writes(out : Output, value : Byte) = writeByte(out, value); 
   }
 
+  implicit object UnitFormat extends Format[Unit]{
+    def reads(in : Input){}
+    def writes(out : Output, value : Unit) {}
+  }
+
   def format[T](implicit fm : Format[T]) = fm;
+
+  def read[T](in : Input)(implicit reader : Reads[T]) = reader.reads(in);
+  def write[T](out : Output, value : T)(implicit writer : Writes[T]) = writer.writes(out, value);
 }
 
 trait CoreProtocol extends Protocol{
@@ -28,6 +36,81 @@ trait CoreProtocol extends Protocol{
   implicit val FloatFormat : Format[Float];
   implicit val DoubleFormat : Format[Double];
   implicit val StringFormat : Format[String];
+}
+
+trait StandardPrimitives extends CoreProtocol{
+  private def readUnsigned(in : Input) = readByte(in).toInt & 0xFF
+
+  implicit object BooleanFormat extends Format[Boolean]{
+    def reads(in : Input) = readByte(in) != 0
+    def writes(out : Output, t : Boolean) = writeByte(out, if (t) (0x01) else (0x00));
+  }
+
+  implicit object CharFormat extends Format[Char]{
+    def reads(in : Input) = ((readUnsigned(in) << 8) + readUnsigned(in)).toChar;
+    def writes(out : Output, t : Char) = {
+      writeByte(out, ((t >>> 8) & 0xFF).toByte);
+      writeByte(out, ((t >>> 0) & 0xFF).toByte);
+    }
+  }
+
+  implicit object ShortFormat extends Format[Short]{
+    def reads(in : Input) = ((readUnsigned(in) << 8) + readUnsigned(in)).toShort
+
+    def writes(out : Output, t : Short) = {
+      writeByte(out, ((t >>> 8) & 0xFF).toByte);
+      writeByte(out, t.toByte);
+    } 
+  }
+
+  implicit object IntFormat extends Format[Int]{
+    def reads(in : Input) = {
+      val ch1 = readUnsigned(in);
+      val ch2 = readUnsigned(in);
+      val ch3 = readUnsigned(in);
+      val ch4 = readUnsigned(in);
+      ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + (ch4 << 0)) 
+    }
+
+    def writes(out : Output, t : Int) {
+      writeByte(out, ((t >>> 24) & 0xFF).toByte);
+      writeByte(out, ((t >>> 16) & 0xFF).toByte);
+      writeByte(out, ((t >>>  8) & 0xFF).toByte);
+      writeByte(out, ((t >>>  0) & 0xFF).toByte);
+    } 
+  }
+
+  implicit object LongFormat extends Format[Long]{
+    def reads(in : Input) = 
+                (readUnsigned(in).toLong << 56) +
+                (readUnsigned(in).toLong << 48) +
+            		(readUnsigned(in) << 40) +
+                (readUnsigned(in) << 32) +
+                (readUnsigned(in) << 24) +
+                (readUnsigned(in) << 16) +
+                (readUnsigned(in) <<  8) +
+                (readUnsigned(in) <<  0);
+    def writes(out : Output, t : Long) = {
+      writeByte(out, (t >>> 56).toByte);
+      writeByte(out, (t >>> 48).toByte);
+      writeByte(out, (t >>> 40).toByte);
+      writeByte(out, (t >>> 32).toByte);
+      writeByte(out, (t >>> 24).toByte);
+      writeByte(out, (t >>> 16).toByte);
+      writeByte(out, (t >>> 8).toByte);
+      writeByte(out, (t >>> 0).toByte);
+    }
+  }
+
+  implicit object FloatFormat extends Format[Float]{
+    def reads(in : Input) = java.lang.Float.intBitsToFloat(read[Int](in))
+    def writes(out : Output, t : Float) = write[Int](out, java.lang.Float.floatToIntBits(t));
+  }
+
+  implicit object DoubleFormat extends Format[Double]{
+    def reads(in : Input) = java.lang.Double.longBitsToDouble(read[Long](in));
+    def writes(out : Output, t : Double) = write[Long](out, java.lang.Double.doubleToLongBits(t));
+  }
 }
 
 trait JavaUTF extends CoreProtocol{
@@ -147,8 +230,5 @@ trait JavaUTF extends CoreProtocol{
   }  
 }
 
-trait JavaFormats{
-
-
-
+trait JavaFormats extends StandardPrimitives with JavaUTF{
 }
