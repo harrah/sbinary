@@ -139,18 +139,18 @@ trait StandardTypes extends CollectionTypes{
     def writes(out : Output, clazz : Class[_]) = write(out, clazz.getName);
   }
 
-  implicit val SymbolFormat : Format[Symbol] = viaString(Symbol(_));
+  implicit lazy val SymbolFormat : Format[Symbol] = viaString(Symbol(_));
 
   import java.io.File;
-  implicit val FileFormat : Format[File] = viaString(new File(_ : String));
+  implicit lazy val FileFormat : Format[File] = viaString(new File(_ : String));
 
   import java.net.{URI, URL}
-  implicit val UrlFormat : Format[URL] = viaString(new URL(_ : String));
-  implicit val UriFormat : Format[URI] = viaString(new URI(_ : String));
+  implicit lazy val UrlFormat : Format[URL] = viaString(new URL(_ : String));
+  implicit lazy val UriFormat : Format[URI] = viaString(new URI(_ : String));
 
 
   import scala.xml.{XML, Elem, NodeSeq};
-  implicit val XmlFormat : Format[NodeSeq] = new Format[NodeSeq]{
+  implicit lazy val XmlFormat : Format[NodeSeq] = new Format[NodeSeq]{
     def reads(in : Input) = XML.loadString(read[String](in)).child;
     def writes(out : Output, elem : NodeSeq) = write(out, <binary>elem</binary>.toString);
   }

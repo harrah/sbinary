@@ -10,7 +10,7 @@ TEST_CLASSPATH      = FileList["#{TEST_LIB_DIR}/**/*.jar"] + CLASSPATH
 CLASSPATH_STRING    = CLASSPATH.join(":");
 TEST_CLASSPATH_STRING    = TEST_CLASSPATH.join(":");
 
-SBINARY_VERSION     = "0.2"
+SBINARY_VERSION     = "0.3-alpha"
 
 JAR_FILE            = "sbinary-#{SBINARY_VERSION}.jar"
 
