@@ -115,7 +115,7 @@ object LazyIOTests extends Properties("LazyIO"){
   });
 }
 
-object FormatTests extends Properties("Binaries"){
+object FormatTests extends Properties("Formats"){
   def validFormat[T](implicit 
                      bin : Format[T], 
                      arb : Arbitrary[T],
@@ -149,19 +149,20 @@ object FormatTests extends Properties("Binaries"){
 
   trait Foo;
 
-  case class Bar extends Foo;
-  case class Baz (string : String) extends Foo;
+  case object Bar extends Foo;
+  case class Baz(override val toString : String) extends Foo;
+  case class Bif(i : Int, j : Long) extends Foo;
 
   implicit val eqFoo = allAreEqual[Foo]
 
-  implicit val BarIsFormat : Format[Bar] = asSingleton(Bar())
-  implicit val BazIsFormat : Format[Baz] = viaString(Baz)
-  implicit val FooIsFormat  : Format[Foo] = asUnion[Foo](classOf[Bar], classOf[Baz])
+  implicit val BazFormat : Format[Baz] = viaString(Baz)
+  implicit val BifFormat : Format[Bif] = asProduct2(Bif)(Bif.unapply(_).get)
+  implicit val FooFormat  : Format[Foo] = asUnion[Foo](Bar, classOf[Baz], classOf[Bif])
 
-
-
-  implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](arbitrary[Boolean].flatMap( (bar : Boolean) =>
-                            if (bar) value(Bar) else arbitrary[String].map(Baz(_))))
+  implicit val arbitraryFoo : Arbitrary[Foo] = Arbitrary[Foo](
+                            oneOf(value(Bar),
+                            arbitrary[(Int, Long)].map{case (i, j) => Bif(i, j)},
+                            arbitrary[String].map(Baz(_))))
   
 
 
@@ -250,4 +251,5 @@ object FormatTests extends Properties("Binaries"){
   formatSpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
 
   include(LazyIOTests);
+  include(CompatTests)
 }

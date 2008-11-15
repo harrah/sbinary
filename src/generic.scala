@@ -106,8 +106,11 @@ trait Generic extends CoreProtocol{
     }  
 </#list>
 
-  case class Summand[T](clazz : Class[T], format : Format[T]);
-  implicit def classToSummand[T](clazz : Class[T])(implicit bin : Format[T]) = Summand(clazz, bin);
+  case class Summand[T](clazz : Class[_], format : Format[T]);
+  implicit def classToSummand[T](clazz : Class[T])(implicit bin : Format[T]) : Summand[T] = Summand[T](clazz, bin);
+  implicit def formatToSummand[T](format : Format[T])(implicit mf : scala.reflect.Manifest[T]) : Summand[T] = Summand[T](mf.erasure, format);
+  // This is a bit gross. 
+  implicit def anyToSummand[T](t : T) = Summand[T](t.asInstanceOf[AnyRef].getClass, asSingleton(t))
 
   /**
    * Uses a single tag byte to represent S as a union of subtypes. 
