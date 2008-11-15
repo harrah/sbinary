@@ -123,7 +123,6 @@ trait CollectionTypes extends BasicTypes with Generic{
   }
 }
 
-
 trait StandardTypes extends CollectionTypes{
   implicit object BigIntFormat extends Format[BigInt]{
     def reads(in : Input) = BigInt(read[Array[Byte]](in));
