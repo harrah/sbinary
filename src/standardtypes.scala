@@ -19,7 +19,7 @@ trait BasicTypes extends CoreProtocol{
   <#assign typeName>
    Tuple${i}[<#list 1..i as j>T${j} <#if i != j>,</#if></#list>]
   </#assign>
-  implicit def tuple${i}sAreFormat[<#list 1..i as j>T${j}<#if i !=j>,</#if></#list>](implicit 
+  implicit def tuple${i}Format[<#list 1..i as j>T${j}<#if i !=j>,</#if></#list>](implicit 
     <#list 1..i as j>
       bin${j} : Format[T${j}] <#if i != j>,</#if>
     </#list>
