@@ -91,6 +91,10 @@ trait JavaUTF extends CoreProtocol{
     buffers.get();
   }
 
+  /**
+   * A Format for strings compatible with the modified UTF format used by 
+   * java.io.DataInput and java.io.DataOutput.
+   */
   implicit object StringFormat extends Format[String]{
     def reads(in : Input) = {
       val utflen = readUnsignedShort(in);
