@@ -19,7 +19,7 @@ trait Generic extends CoreProtocol{
   abstract class LengthEncoded[S <: Collection[T], T](implicit binT : Format[T]) extends Format[S]{
     def build(size : Int, ts : Iterator[T]) : S;
 
-    def reads(in : Input) = { val size = read[Int](in); build(size, asIterator[T](in).take(size)) }
+    def reads(in : Input) = { val size = read[Int](in); build(size, (0 until size).map(i => read[T](in)).elements) }
     def writes(out : Output, ts : S) = { write(out, ts.size); ts.foreach(write(out, _)); }
   }
 

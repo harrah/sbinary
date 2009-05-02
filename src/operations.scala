@@ -12,19 +12,6 @@ object Operations{
 
 
   /**
-   * Returns an iterator that iterates by reading from this input.
-   * In order to ensure proper laziness properties (and not reading more
-   * data than is strictly neccessary) this will always return true 
-   * from hasNext but may throw an EOFException on an unexpected end
-   * of stream.
-   */
-  def asIterator[S](input : Input)(implicit bin : Reads[S]) = new Iterator[S]{
-    def hasNext = true;
-    def next = read[S](input);
-  }
-
-
-  /**
    * Get the serialized value of this class as a byte array.
    */
   def toByteArray[T](t : T)(implicit bin : Writes[T]) : Array[Byte] = {
