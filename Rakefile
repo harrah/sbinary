@@ -16,9 +16,11 @@ JAR_FILE            = "sbinary-#{SBINARY_VERSION}.jar"
 
 task :default => :compile
 
+FMPP="tools/fmpp/bin/fmpp"
+
 task :generate do
   mkdir_p "generated" unless File.exists? "generated"
-  sh "fmpp --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
+  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["src/**/*.scala"]}"
 end
 
 task :compile => :generate do
@@ -33,7 +35,7 @@ task :dist => [:clean, :compile] do
 end
 
 task :compiletests do 
-  sh "fmpp --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
+  sh "#{FMPP} --ignore-temporary-files -O generated #{FileList["test-src/**/*.scala"]}"
   sh "fsc -cp \"#{TEST_CLASSPATH_STRING}\" -d build #{FileList["generated/test-src/**/*.scala"]}"
 end
 
