@@ -7,6 +7,7 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer};
 import scala.collection._;
 
 import java.io._;
+import Operations._;
 
 trait Generic extends CoreProtocol{
   implicit def arrayFormat[T](implicit fmt : Format[T]) : Format[Array[T]];

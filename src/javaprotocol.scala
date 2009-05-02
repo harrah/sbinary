@@ -1,5 +1,7 @@
 package sbinary;
 
+import Operations._;
+
 trait StandardPrimitives extends CoreProtocol{
   private def readUnsigned(in : Input) = in.readByte.toInt & 0xFF
 

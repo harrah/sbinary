@@ -1,5 +1,6 @@
 package sbinary;
 
+import Operations._;
 import scala.collection._;
 
 trait BasicTypes extends CoreProtocol{

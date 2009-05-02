@@ -1,26 +1,6 @@
 package sbinary;
 
-trait Protocol{
-  trait Reads[T]{
-    def reads(in : Input) : T;
-  }
-
-  trait Writes[T]{
-    def writes(out : Output, value : T) : Unit;
-  }
-
-  trait Format[T] extends Reads[T] with Writes[T];
-
-  implicit object ByteFormat extends Format[Byte]{
-    def reads(in : Input) = in.readByte;
-    def writes(out : Output, value : Byte) = out.writeByte(value); 
-  }
-
-  implicit object UnitFormat extends Format[Unit]{
-    def reads(in : Input){}
-    def writes(out : Output, value : Unit) {}
-  }
-
+object Operations{
   def format[T](implicit fm : Format[T]) = fm;
 
   def read[T](in : Input)(implicit reader : Reads[T]) = reader.reads(in);
@@ -37,6 +17,30 @@ trait Protocol{
   def asIterator[S](input : Input)(implicit bin : Reads[S]) = new Iterator[S]{
     def hasNext = true;
     def next = read[S](input);
+  }
+
+}
+
+trait Reads[T]{
+  def reads(in : Input) : T;
+}
+
+trait Writes[T]{
+  def writes(out : Output, value : T) : Unit;
+}
+
+trait Format[T] extends Reads[T] with Writes[T];
+
+
+trait Protocol{
+  implicit object ByteFormat extends Format[Byte]{
+    def reads(in : Input) = in.readByte;
+    def writes(out : Output, value : Byte) = out.writeByte(value); 
+  }
+
+  implicit object UnitFormat extends Format[Unit]{
+    def reads(in : Input){}
+    def writes(out : Output, value : Unit) {}
   }
 }
 
