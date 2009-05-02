@@ -1,25 +1,5 @@
 package sbinary;
 
-object Operations{
-  def format[T](implicit fm : Format[T]) = fm;
-
-  def read[T](in : Input)(implicit reader : Reads[T]) = reader.reads(in);
-  def write[T](out : Output, value : T)(implicit writer : Writes[T]) = writer.writes(out, value);
-
-
-  /**
-   * Returns an iterator that iterates by reading from this input.
-   * In order to ensure proper laziness properties (and not reading more
-   * data than is strictly neccessary) this will always return true 
-   * from hasNext but may throw an EOFException on an unexpected end
-   * of stream.
-   */
-  def asIterator[S](input : Input)(implicit bin : Reads[S]) = new Iterator[S]{
-    def hasNext = true;
-    def next = read[S](input);
-  }
-
-}
 
 trait Reads[T]{
   def reads(in : Input) : T;
