@@ -65,13 +65,13 @@ trait CollectionTypes extends BasicTypes with Generic{
     def reads(in : Input) = {
       val length = read[Int](in);
       val bytes = new Array[Byte](length);
-      readFully(in, bytes);
+      in.readFully(bytes);
       bytes; 
     }
 
     def writes(out : Output, bytes : Array[Byte]){
       write(out, bytes.length);
-      writeAll(out, bytes);
+      out.writeAll(bytes);
     }
   }
 

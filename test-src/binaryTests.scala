@@ -69,11 +69,12 @@ import Equal._;
 
 object CompatTests extends Properties("CompatTests"){
   import java.io._;
+  import JavaIO._;
 
   def compatFor[T](name : String, readJ : DataInput => T, writeJ : (DataOutput, T) => Unit)(implicit fmt : Format[T], arb : Arbitrary[T]) = {
     specify(name + "AgreesWithDataInput", (x : T) => {
       val it = new ByteArrayOutputStream();
-      try { write(it, x); readJ(new DataInputStream(new ByteArrayInputStream(it.toByteArray))) == x }
+      try { fmt.writes(it, x); readJ(new DataInputStream(new ByteArrayInputStream(it.toByteArray))) == x }
       catch { case (e : Throwable) => e.printStackTrace; false }
     });
 

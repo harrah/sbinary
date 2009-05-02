@@ -1,18 +1,18 @@
 package sbinary;
 
 trait StandardPrimitives extends CoreProtocol{
-  private def readUnsigned(in : Input) = readByte(in).toInt & 0xFF
+  private def readUnsigned(in : Input) = in.readByte.toInt & 0xFF
 
   implicit object BooleanFormat extends Format[Boolean]{
-    def reads(in : Input) = readByte(in) != 0
-    def writes(out : Output, t : Boolean) = writeByte(out, if (t) (0x01) else (0x00));
+    def reads(in : Input) = in.readByte != 0
+    def writes(out : Output, t : Boolean) = out.writeByte(if (t) (0x01) else (0x00));
   }
 
   implicit object CharFormat extends Format[Char]{
     def reads(in : Input) = ((readUnsigned(in) << 8) + readUnsigned(in)).toChar;
     def writes(out : Output, t : Char) = {
-      writeByte(out, ((t >>> 8) & 0xFF).toByte);
-      writeByte(out, ((t >>> 0) & 0xFF).toByte);
+      out.writeByte(((t >>> 8) & 0xFF).toByte);
+      out.writeByte(((t >>> 0) & 0xFF).toByte);
     }
   }
 
@@ -20,8 +20,8 @@ trait StandardPrimitives extends CoreProtocol{
     def reads(in : Input) = ((readUnsigned(in) << 8) + readUnsigned(in)).toShort
 
     def writes(out : Output, t : Short) = {
-      writeByte(out, ((t >>> 8) & 0xFF).toByte);
-      writeByte(out, t.toByte);
+      out.writeByte(((t >>> 8) & 0xFF).toByte);
+      out.writeByte(t.toByte);
     } 
   }
 
@@ -35,10 +35,10 @@ trait StandardPrimitives extends CoreProtocol{
     }
 
     def writes(out : Output, t : Int) {
-      writeByte(out, ((t >>> 24) & 0xFF).toByte);
-      writeByte(out, ((t >>> 16) & 0xFF).toByte);
-      writeByte(out, ((t >>>  8) & 0xFF).toByte);
-      writeByte(out, ((t >>>  0) & 0xFF).toByte);
+      out.writeByte(((t >>> 24) & 0xFF).toByte);
+      out.writeByte(((t >>> 16) & 0xFF).toByte);
+      out.writeByte(((t >>>  8) & 0xFF).toByte);
+      out.writeByte(((t >>>  0) & 0xFF).toByte);
     } 
   }
 
@@ -53,14 +53,14 @@ trait StandardPrimitives extends CoreProtocol{
                 (readUnsigned(in).toLong <<  8) +
                 (readUnsigned(in).toLong <<  0);
     def writes(out : Output, t : Long) = {
-      writeByte(out, (t >>> 56).toByte);
-      writeByte(out, (t >>> 48).toByte);
-      writeByte(out, (t >>> 40).toByte);
-      writeByte(out, (t >>> 32).toByte);
-      writeByte(out, (t >>> 24).toByte);
-      writeByte(out, (t >>> 16).toByte);
-      writeByte(out, (t >>> 8).toByte);
-      writeByte(out, (t >>> 0).toByte);
+      out.writeByte((t >>> 56).toByte);
+      out.writeByte((t >>> 48).toByte);
+      out.writeByte((t >>> 40).toByte);
+      out.writeByte((t >>> 32).toByte);
+      out.writeByte((t >>> 24).toByte);
+      out.writeByte((t >>> 16).toByte);
+      out.writeByte((t >>> 8).toByte);
+      out.writeByte((t >>> 0).toByte);
     }
   }
 
@@ -76,7 +76,7 @@ trait StandardPrimitives extends CoreProtocol{
 }
 
 trait JavaUTF extends CoreProtocol{
-  private[this] def readUnsignedByte(in : Input) : Int = readByte(in).toInt & 0xFF
+  private[this] def readUnsignedByte(in : Input) : Int = in.readByte.toInt & 0xFF
   private[this] def readUnsignedShort(in : Input) : Int = 
     (readUnsignedByte(in) << 8) + readUnsignedByte(in)
 
@@ -100,7 +100,7 @@ trait JavaUTF extends CoreProtocol{
       val utflen = readUnsignedShort(in);
       val (cbuffer, bbuffer) = fetchBuffers(utflen);
 
-      readFully(in, bbuffer, 0, utflen);
+      in.readFully(bbuffer, 0, utflen);
 
       var count, charCount, c, char2, char3 = 0;
 
@@ -194,7 +194,7 @@ trait JavaUTF extends CoreProtocol{
         i += 1;
       }
 
-      writeAll(out, bbuffer, 0, utflen + 2); 
+      out.writeAll(bbuffer, 0, utflen + 2); 
     }
   }  
 }
@@ -202,15 +202,16 @@ trait JavaUTF extends CoreProtocol{
 trait JavaFormats extends StandardPrimitives with JavaUTF{
 }
 
-trait JavaIOProtocol extends Protocol with JavaIO{
+trait JavaIOProtocol extends Protocol{
   import java.io._;
+  import JavaIO._;
 
   /**
    * Get the serialized value of this class as a byte array.
    */
   def toByteArray[T](t : T)(implicit bin : Writes[T]) : Array[Byte] = {
     val target = new ByteArrayOutputStream();
-    write(target, t);
+    bin.writes(target, t);
     target.toByteArray(); 
   }
  

@@ -2,25 +2,24 @@ package sbinary;
 
 case object EOF extends Throwable{
   override def fillInStackTrace = this;
+  def eof = throw EOF;
 }
 
-trait IO{
-  type Input;
-  type Output;
+import EOF.eof
 
-  def eof = throw EOF;
+trait Input{
 
   /**
    * Read a byte. If we have come to the end of the stream, throws EOF.
    */
-  def readByte(in : Input) : Byte;
+  def readByte : Byte;
 
-  def readTo(in : Input, target : Array[Byte], offset : Int, length : Int) : Int = {
+  def readTo(target : Array[Byte], offset : Int, length : Int) : Int = {
     var i = 0;
 
     try{
       while (i < length){
-        target(offset + i) = readByte(in);
+        target(offset + i) = readByte;
         i += 1;
       }
     } catch {
@@ -30,57 +29,61 @@ trait IO{
     i;
   }
 
-  def readTo(in : Input, target : Array[Byte]) : Int = readTo(in, target, 0, target.length);
+  def readTo(target : Array[Byte]) : Int = readTo(target, 0, target.length);
 
-  def readFully(in : Input, target : Array[Byte], offset : Int, length : Int){
+  def readFully(target : Array[Byte], offset : Int, length : Int){
     var bytesRead = 0;
 
     while(bytesRead < length){
-      val newRead = readTo(in, target, offset + bytesRead, length - bytesRead);
+      val newRead = readTo(target, offset + bytesRead, length - bytesRead);
       if (newRead <= 0) eof;
       bytesRead += newRead;
     }
   }
 
-  def readFully(in : Input, target : Array[Byte]){
-    readFully(in, target, 0, target.length);
+  def readFully(target : Array[Byte]){
+    readFully(target, 0, target.length);
   } 
+}
 
-  def writeByte(out : Output, value : Byte);
+trait Output{
+  def writeByte(value : Byte);
 
-  def writeAll(out : Output, source : Array[Byte], offset : Int, length : Int) {
+  def writeAll(source : Array[Byte], offset : Int, length : Int) {
     var i = 0;
 
     while(i < length){
-      writeByte(out, source(offset + i));
+      writeByte(source(offset + i));
       i += 1;
     }
   }
 
-  def writeAll(out : Output, source : Array[Byte]){
-    writeAll(out, source, 0, source.length);
+  def writeAll(source : Array[Byte]){
+    writeAll(source, 0, source.length);
   }
-
-  def flush(out : Output){ }
 }
 
-trait JavaIO extends IO{
-  import java.io._;
+import java.io._;
 
-  type Input = java.io.InputStream;
-  type Output = java.io.OutputStream;
-
-  def readByte(in : Input) = in.read() match {
+class JavaInput(in : InputStream) extends Input{
+  def readByte = in.read() match {
     case x if x < 0 => eof; 
     case x => x.toByte;
   }
 
-  override def readTo(in : Input, target : Array[Byte], offset : Int, length : Int) : Int = 
+  override def readTo(target : Array[Byte], offset : Int, length : Int) : Int = 
     in.read(target, offset, length) match {
       case x if x < 0 => eof;
       case x => x;
     }
+}
 
-  def writeByte(out : Output, value : Byte) = out.write(value);
-  override def writeAll(out : Output, source : Array[Byte], offset : Int, length : Int) = out.write(source, offset, length);
+class JavaOutput(out : OutputStream) extends Output{
+  def writeByte(value : Byte) = out.write(value);
+  override def writeAll(source : Array[Byte], offset : Int, length : Int) = out.write(source, offset, length);
+}
+
+object JavaIO{
+  implicit def javaInputToInput(x : InputStream) = new JavaInput(x);
+  implicit def javaOutputToOutput(x : OutputStream) = new JavaOutput(x);
 }

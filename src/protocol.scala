@@ -1,6 +1,6 @@
 package sbinary;
 
-trait Protocol extends IO{
+trait Protocol{
   trait Reads[T]{
     def reads(in : Input) : T;
   }
@@ -12,8 +12,8 @@ trait Protocol extends IO{
   trait Format[T] extends Reads[T] with Writes[T];
 
   implicit object ByteFormat extends Format[Byte]{
-    def reads(in : Input) = readByte(in);
-    def writes(out : Output, value : Byte) = writeByte(out, value); 
+    def reads(in : Input) = in.readByte;
+    def writes(out : Output, value : Byte) = out.writeByte(value); 
   }
 
   implicit object UnitFormat extends Format[Unit]{
