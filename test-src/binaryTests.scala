@@ -7,6 +7,7 @@ import Prop._;
 
 import scala.collection._;
 import DefaultProtocol._;
+import Operations._;
 
 object Equal{
   abstract class Equal[T] extends Function2[T, T, Boolean];
