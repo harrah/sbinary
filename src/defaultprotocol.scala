@@ -1,4 +1,4 @@
 package sbinary;
 
-trait DefaultProtocol extends StandardTypes with JavaIOProtocol with JavaFormats;
+trait DefaultProtocol extends StandardTypes with JavaFormats;
 object DefaultProtocol extends DefaultProtocol;
