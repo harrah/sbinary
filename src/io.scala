@@ -1,8 +1,8 @@
 package sbinary;
 
-case object EOF extends Throwable{
-  override def fillInStackTrace = this;
-  def eof = throw EOF;
+case class EOF() extends Exception;
+object EOF{
+  def eof = throw new EOF;
 }
 
 import EOF.eof
@@ -23,7 +23,7 @@ trait Input{
         i += 1;
       }
     } catch {
-      case EOF =>;
+      case EOF() =>;
     }
 
     i;
