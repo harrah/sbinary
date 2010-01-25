@@ -261,7 +261,4 @@ object FormatTests extends Properties("Formats"){
   formatSpec[(BinaryTree, BinaryTree)]("(BinaryTree, BinaryTree)")
   
   formatSpec[SomeEnum.Value]("SomeEnum.Value")
-
-  include(LazyIOTests);
-  include(CompatTests)
 }
