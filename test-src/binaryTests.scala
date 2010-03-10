@@ -2,7 +2,7 @@ package sbinary;
 import org.scalacheck._;
 import org.scalacheck.Test._;
 import Gen._;
-import Arbitrary._;
+import Arbitrary.arbitrary;
 import Prop._;
 
 import scala.collection._;
@@ -73,20 +73,20 @@ object CompatTests extends Properties("CompatTests"){
   import JavaIO._;
 
   def compatFor[T](name : String, readJ : DataInput => T, writeJ : (DataOutput, T) => Unit)(implicit fmt : Format[T], arb : Arbitrary[T]) = {
-    specify(name + "AgreesWithDataInput", (x : T) => {
+    property(name + "AgreesWithDataInput") = forAll { (x : T) =>
       val it = new ByteArrayOutputStream();
       try { fmt.writes(it, x); readJ(new DataInputStream(new ByteArrayInputStream(it.toByteArray))) == x }
       catch { case (e : Throwable) => e.printStackTrace; false }
-    });
+    };
 
-    specify(name + "AgreesWithDataOutput", (x : T) => {    
+    property(name + "AgreesWithDataOutput") = forAll { (x : T) =>
       val it = new ByteArrayOutputStream();
       try { 
         writeJ(new DataOutputStream(it), x); 
         val ba = it.toByteArray;
         fromByteArray[T](ba) == x
       } catch { case (e : Throwable) => e.printStackTrace; false }
-    })
+    }
   }
 
   compatFor[String]("String", _.readUTF, _.writeUTF(_)) 
@@ -101,27 +101,27 @@ object CompatTests extends Properties("CompatTests"){
 object LazyIOTests extends Properties("LazyIO"){
 
   import java.io._;
-  specify("NoMixingOfStreams", (x : Stream[Int]) => { 
+  property("NoMixingOfStreams") = forAll { (x : Stream[Int]) =>
     val (u, v) = fromByteArray[(Stream[Int], Stream[Int])](toByteArray((x, x)))
     equal(u, v) && equal(u, x); 
-  });
+  };
 
-  specify("NoMixingOfStreamsAndOthers", (x : Stream[Int], y : String, z : Stream[Int]) => { 
+  property("NoMixingOfStreamsAndOthers") = forAll { (x : Stream[Int], y : String, z : Stream[Int]) =>
     val (u, s, v) = fromByteArray[(Stream[Int], String, Stream[Int])](toByteArray((x, y, z)))
     equal(u, x) && equal(s, y) && equal(z, v); 
-  });
+  };
 
-  specify("StreamsOfStreams", (x : Stream[Stream[Int]]) => !x.isEmpty ==> {
+  property("StreamsOfStreams") = forAll { (x : Stream[Stream[Int]]) => !x.isEmpty ==> {
     val x2 = fromByteArray[Stream[Stream[Int]]](toByteArray(x));
     equal(x(x.length - 1), x2(x.length - 1));
-  });
+  } };
 }
 
 object FormatTests extends Properties("Formats"){
   def validFormat[T](implicit 
                      bin : Format[T], 
                      arb : Arbitrary[T],
-                    equal : Equal[T]) = property((x : T) => 
+                    equal : Equal[T]) = forAll((x : T) =>
       try { equal(x, fromByteArray[T](toByteArray(x))) } catch {
         case (e : Throwable) => e.printStackTrace; false 
       })
@@ -130,13 +130,18 @@ object FormatTests extends Properties("Formats"){
                      bin : Format[T], 
                      arb : Arbitrary[T],
                     equal : Equal[T]) = 
-    specify(name, validFormat[T]) 
+    { property(name) = validFormat[T] }
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
-  implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] =  Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*)))
+  implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] = {
+    import BasicTypes.orderable
+    Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*)))
+  }
 
-  implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
+  //implicit def arbitrarySet[T](implicit arb : Arbitrary[T]) : Arbitrary[immutable.Set[T]] = Arbitrary(arbitrary[List[T]].map((x : List[T]) => immutable.Set(x :_*)));
+  implicit def arbitraryArray[T](implicit arb : Arbitrary[T], mf: scala.reflect.Manifest[T]) : Arbitrary[Array[T]] =
+     Arbitrary(arbitrary[List[T]].map((x : List[T]) => x.toArray[T]));
 
   implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x : _*){}));
 
@@ -191,13 +196,14 @@ object FormatTests extends Properties("Formats"){
     Arbitrary[BinaryTree](sized(sizedArbitraryTree(_ : Int)))
   }
 
-  val SomeEnum = new Enumeration{
+  object SomeEnum extends Enumeration{
     val Foo, Bar, Baz = Value;
+    def items: List[Value] = Foo :: Bar :: Baz :: Nil
   }
 
   implicit val SomeEnumFormat = enumerationFormat[SomeEnum.Value](SomeEnum)
   implicit val SomeEnumEq = allAreEqual[SomeEnum.Value]
-  implicit val SomeEnumArb = Arbitrary[SomeEnum.Value](elements(SomeEnum.elements.toList :_*))
+  implicit val SomeEnumArb = Arbitrary[SomeEnum.Value](elements(SomeEnum.items :_*))
 
   formatSpec[Boolean]("Boolean");
   formatSpec[Byte]("Byte");

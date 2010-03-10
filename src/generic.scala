@@ -10,25 +10,45 @@ import java.io._;
 import Operations._;
 
 trait Generic extends CoreProtocol{
-  implicit def arrayFormat[T](implicit fmt : Format[T]) : Format[Array[T]];
+  implicit def arrayFormat[T](implicit fmt : Format[T], mf: scala.reflect.Manifest[T]) : Format[Array[T]];
+  // Needed to implement viaSeq, which is need for 2.7/2.8 compatibility -MH
+  implicit def listFormat[T](implicit fmt : Format[T]) : Format[List[T]];
 
+  /** A more general LengthEncoded.  For 2.7/8 compatibility (arrays are no longer collections). -MH*/
+  abstract class CollectionFormat[S, T](implicit binT : Format[T]) extends Format[S]{
+    def size(s: S): Int
+    def foreach(s: S)(f: T => Unit): Unit
+    def build(size : Int, ts : Iterator[T]) : S;
+
+    def reads(in : Input) = { val size = read[Int](in); build(size, (0 until size).map(i => read[T](in)).elements) }
+    def writes(out : Output, ts : S) = { write(out, size(ts)); foreach(ts)(write(out, _)); }
+  }
   /** 
    * Format instance which encodes the collection by first writing the length
    * of the collection as an int, then writing the collection elements in order.
    */
-  abstract class LengthEncoded[S <: Collection[T], T](implicit binT : Format[T]) extends Format[S]{
-    def build(size : Int, ts : Iterator[T]) : S;
-
-    def reads(in : Input) = { val size = read[Int](in); build(size, (0 until size).map(i => read[T](in)).elements) }
-    def writes(out : Output, ts : S) = { write(out, ts.size); ts.foreach(write(out, _)); }
+  abstract class LengthEncoded[S <: Collection[T], T](implicit binT : Format[T]) extends CollectionFormat[S, T]{
+    def size(s: S) = s.size
+    def foreach(s: S)(f: T => Unit) = s.foreach(f)
   }
 
   /**
-   * Length encodes, but with the result built from an array. 
+   * Length encodes, but with the result built from an array.
+   *
+   * implicit Manifest required as of 0.3.1 for Scala 2.8 compatibility. -MH
    */
-  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Format[T]) : Format[S] = new Format[S] {
+  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Format[T], mf: scala.reflect.Manifest[T]) : Format[S] = new Format[S] {
     def writes(out : Output, xs : S) = { write(out, xs.size); xs.foreach(write(out, _)); }
     def reads(in : Input) = f(read[Array[T]](in));
+  }
+  /**
+   * Length encodes, but with the result built from a Seq.
+   *
+   * Exists to solve 2.7/2.8 compatibility.  -MH
+   */
+  def viaSeq[S <: Collection[T], T] (f : Seq[T] => S) (implicit binary : Format[T]) : Format[S] = new Format[S] {
+    def writes(out : Output, xs : S) = { write(out, xs.size); xs.foreach(write(out, _)); }
+    def reads(in : Input) = f(read[List[T]](in));
   }
 
   /**
@@ -135,16 +155,15 @@ trait Generic extends CoreProtocol{
 
       def reads(in : Input) : S = read(in)(summands(read[Byte](in)).format)
 
-      def writes(out : Output, s : S) {
-        for ((sum, i) <- mappings){
-          if (sum.clazz.isInstance(s)) {
-            write(out, i.toByte);
-            write(out, sum.clazz.cast(s))(sum.format);
-            return;
-          }
+      def writes(out : Output, s : S): Unit =
+        mappings.find(_._1.clazz.isInstance(s)) match {
+          case Some( (sum, i) ) => writeSum(out, s, sum, i)
+          case None => error("No known sum type for object " + s);
         }
-        error("No known sum type for object " + s);
+      private def writeSum[T](out : Output, s : S, sum : Summand[T], i : Int) {
+        write(out, i.toByte);
+        // 2.7/2.8 compatibility: cast added by MH
+        write(out, sum.clazz.cast(s).asInstanceOf[T])(sum.format);
       }
-    } 
+  }
 }
-

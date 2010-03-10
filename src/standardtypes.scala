@@ -50,15 +50,17 @@ trait CollectionTypes extends BasicTypes with Generic{
       } 
     }
 
-  implicit def arrayFormat[T](implicit fmt : Format[T]) : Format[Array[T]] = fmt match{
+  implicit def arrayFormat[T](implicit fmt : Format[T], mf : scala.reflect.Manifest[T]) : Format[Array[T]] = fmt match{
     case ByteFormat => ByteArrayFormat.asInstanceOf[Format[Array[T]]];
     case _ => 
-      new LengthEncoded[Array[T], T]{
+      new CollectionFormat[Array[T], T]{
         def build(length : Int, ts : Iterator[T]) = {
           val result = new Array[T](length);
           ts.copyToArray(result, 0);
           result;
         }
+        def size(a: Array[T]) = a.length
+        def foreach(a: Array[T])(f: T => Unit) = a foreach f
       } 
     }
 
@@ -77,19 +79,23 @@ trait CollectionTypes extends BasicTypes with Generic{
   }
 
   implicit def mutableSetFormat[T](implicit bin : Format[T]) : Format[mutable.Set[T]] = 
-    viaArray((x : Array[T]) => mutable.Set(x :_*))
+    viaSeq((x : Seq[T]) => mutable.Set(x :_*))
 
   implicit def immutableSetFormat[T](implicit bin : Format[T]) : Format[immutable.Set[T]] = 
-    viaArray((x : Array[T]) => immutable.Set(x :_*))
+    viaSeq((x : Seq[T]) => immutable.Set(x :_*))
 
-  implicit def immutableSortedSetFormat[S](implicit ord : S => Ordered[S], binS : Format[S]) : Format[immutable.SortedSet[S]] = 
-    viaArray( (x : Array[S]) => immutable.TreeSet[S](x :_*))
+  implicit def immutableSortedSetFormat[S](implicit ord : S => Ordered[S], binS : Format[S]) : Format[immutable.SortedSet[S]] = {
+    import BasicTypes.orderable // 2.7/8 compatibility
+    viaSeq( (x : Seq[S]) => immutable.TreeSet[S](x :_*))
+  }
 
   implicit def immutableMapFormat[S, T](implicit binS : Format[S], binT : Format[T]) : Format[immutable.Map[S, T]] =
-    viaArray( (x : Array[(S, T)]) => immutable.Map(x :_*));
+    viaSeq( (x : Seq[(S, T)]) => immutable.Map(x :_*));
 
-  implicit def immutableSortedMapFormat[S, T](implicit ord : S => Ordered[S], binS : Format[S], binT : Format[T]) : Format[immutable.SortedMap[S, T]] =
-    viaArray( (x : Array[(S, T)]) => immutable.TreeMap[S, T](x :_*))
+  implicit def immutableSortedMapFormat[S, T](implicit ord : S => Ordered[S], binS : Format[S], binT : Format[T]) : Format[immutable.SortedMap[S, T]] = {
+    import BasicTypes.orderable // 2.7/8 compatibility
+    viaSeq( (x : Seq[(S, T)]) => immutable.TreeMap[S, T](x :_*))
+  }
 
   /**
    * Format instance for streams.
@@ -154,5 +160,11 @@ trait StandardTypes extends CollectionTypes{
   implicit lazy val XmlFormat : Format[NodeSeq] = new Format[NodeSeq]{
     def reads(in : Input) = XML.loadString(read[String](in)).child;
     def writes(out : Output, elem : NodeSeq) = write(out, <binary>elem</binary>.toString);
+  }
+}
+object BasicTypes {
+  /** 2.7/8 compatibility */
+  implicit def orderable[A](implicit s: A => Ordered[A]): Ordering[A] = new Ordering[A] {
+    def compare(x: A, y: A) = s(x).compare(y)
   }
 }
