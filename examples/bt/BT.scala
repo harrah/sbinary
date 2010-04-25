@@ -1,8 +1,8 @@
 package sbintest
 
-import sbinary.DefaultProtocol._
-import sbinary.Operations._
 import sbinary._
+import DefaultProtocol._
+import Operations._
 
 	// Binary tree data types that will be
 	//   created and converted to/from byte arrays
