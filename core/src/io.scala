@@ -83,7 +83,9 @@ class JavaOutput(out : OutputStream) extends Output{
   override def writeAll(source : Array[Byte], offset : Int, length : Int) = out.write(source, offset, length);
 }
 
-object JavaIO{
-  implicit def javaInputToInput(x : InputStream) = new JavaInput(x);
-  implicit def javaOutputToOutput(x : OutputStream) = new JavaOutput(x);
+object Input {
+  implicit def javaInputToInput(x : InputStream): JavaInput = new JavaInput(x)
+}
+object Output {
+  implicit def javaOutputToOutput(x : OutputStream): JavaOutput = new JavaOutput(x);
 }

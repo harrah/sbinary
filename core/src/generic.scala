@@ -11,42 +11,39 @@ import Operations._;
 
 trait Generic extends CoreProtocol{
   implicit def arrayFormat[T](implicit fmt : Format[T], mf: scala.reflect.Manifest[T]) : Format[Array[T]];
-  // Needed to implement viaSeq, which is need for 2.7/2.8 compatibility -MH
+  // Needed to implement viaSeq
   implicit def listFormat[T](implicit fmt : Format[T]) : Format[List[T]];
 
-  /** A more general LengthEncoded.  For 2.7/8 compatibility (arrays are no longer collections). -MH*/
+  /** A more general LengthEncoded (arrays are no longer collections) */
   abstract class CollectionFormat[S, T](implicit binT : Format[T]) extends Format[S]{
     def size(s: S): Int
     def foreach(s: S)(f: T => Unit): Unit
     def build(size : Int, ts : Iterator[T]) : S;
 
-    def reads(in : Input) = { val size = read[Int](in); build(size, (0 until size).map(i => read[T](in)).elements) }
+    def reads(in : Input) = { val size = read[Int](in); build(size, (0 until size).map(i => read[T](in)).iterator) }
     def writes(out : Output, ts : S) = { write(out, size(ts)); foreach(ts)(write(out, _)); }
   }
   /** 
    * Format instance which encodes the collection by first writing the length
    * of the collection as an int, then writing the collection elements in order.
    */
-  abstract class LengthEncoded[S <: Collection[T], T](implicit binT : Format[T]) extends CollectionFormat[S, T]{
+  abstract class LengthEncoded[S <: Traversable[T], T](implicit binT : Format[T]) extends CollectionFormat[S, T]{
     def size(s: S) = s.size
     def foreach(s: S)(f: T => Unit) = s.foreach(f)
   }
 
   /**
    * Length encodes, but with the result built from an array.
-   *
-   * implicit Manifest required as of 0.3.1 for Scala 2.8 compatibility. -MH
    */
-  def viaArray[S <: Collection[T], T] (f : Array[T] => S) (implicit binary : Format[T], mf: scala.reflect.Manifest[T]) : Format[S] = new Format[S] {
+  def viaArray[S <: Traversable[T], T] (f : Array[T] => S) (implicit binary : Format[T], mf: scala.reflect.Manifest[T]) : Format[S] = new Format[S] {
     def writes(out : Output, xs : S) = { write(out, xs.size); xs.foreach(write(out, _)); }
     def reads(in : Input) = f(read[Array[T]](in));
   }
   /**
    * Length encodes, but with the result built from a Seq.
-   *
-   * Exists to solve 2.7/2.8 compatibility.  -MH
+	* Useful for when a `ClassManifest` is not available the underlying type `T`.
    */
-  def viaSeq[S <: Collection[T], T] (f : Seq[T] => S) (implicit binary : Format[T]) : Format[S] = new Format[S] {
+  def viaSeq[S <: Traversable[T], T] (f : Seq[T] => S) (implicit binary : Format[T]) : Format[S] = new Format[S] {
     def writes(out : Output, xs : S) = { write(out, xs.size); xs.foreach(write(out, _)); }
     def reads(in : Input) = f(read[List[T]](in));
   }

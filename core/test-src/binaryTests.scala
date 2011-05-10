@@ -70,7 +70,6 @@ import Equal._;
 
 object CompatTests extends Properties("CompatTests"){
   import java.io._;
-  import JavaIO._;
 
   def compatFor[T](name : String, readJ : DataInput => T, writeJ : (DataOutput, T) => Unit)(implicit fmt : Format[T], arb : Arbitrary[T]) = {
     property(name + "AgreesWithDataInput") = forAll { (x : T) =>
@@ -134,8 +133,7 @@ object FormatTests extends Properties("Formats"){
 
   implicit val arbitraryUnit = Arbitrary[Unit](value(() => ()))
 
-  implicit def arbitrarySortedMap[K, V](implicit ord : K => Ordered[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] = {
-    import BasicTypes.orderable
+  implicit def arbitrarySortedMap[K, V](implicit ord : Ordering[K], arbK : Arbitrary[K], arbV : Arbitrary[V]) : Arbitrary[immutable.SortedMap[K, V]] = {
     Arbitrary(arbitrary[List[(K, V)]].map(x => immutable.TreeMap(x :_*)))
   }
 
@@ -145,12 +143,12 @@ object FormatTests extends Properties("Formats"){
 
   implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x : _*){}));
 
-  implicit def orderedOption[T](opt : Option[T])(implicit ord : T => Ordered[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
+  implicit def orderedOption[T](opt : Option[T])(implicit ord : Ordering[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
     def compare(that : Option[T]) = (opt, that) match {
       case (None, None) => 0;
       case (None, Some(_)) => -1;
       case (Some(_), None) => 1;
-      case (Some(x), Some(y)) => x.compare(y);
+      case (Some(x), Some(y)) => ord.compare(x,y);
     }
   }
 
@@ -203,7 +201,7 @@ object FormatTests extends Properties("Formats"){
 
   implicit val SomeEnumFormat = enumerationFormat[SomeEnum.Value](SomeEnum)
   implicit val SomeEnumEq = allAreEqual[SomeEnum.Value]
-  implicit val SomeEnumArb = Arbitrary[SomeEnum.Value](elements(SomeEnum.items :_*))
+  implicit val SomeEnumArb = Arbitrary[SomeEnum.Value](oneOf(SomeEnum.items))
 
   formatSpec[Boolean]("Boolean");
   formatSpec[Byte]("Byte");

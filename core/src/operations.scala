@@ -2,8 +2,7 @@
 package sbinary;
 
 object Operations{
-  import java.io._;
-  import JavaIO._;
+  import java.io.{BufferedInputStream, BufferedOutputStream, ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, FileOutputStream};
 
   def format[T](implicit fm : Format[T]) = fm;
 

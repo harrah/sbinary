@@ -2,6 +2,7 @@ package sbinary;
 
 import Operations._;
 import scala.collection._;
+import generic.CanBuildFrom
 
 trait BasicTypes extends CoreProtocol{
   implicit def optionsAreFormat[S](implicit bin : Format[S]) : Format[Option[S]] = new Format[Option[S]]{
@@ -40,15 +41,21 @@ trait BasicTypes extends CoreProtocol{
 </#list>
 }
 
-trait CollectionTypes extends BasicTypes with Generic{
-  implicit def listFormat[T](implicit bin : Format[T]) : Format[List[T]] = 
-    new LengthEncoded[List[T], T]{
+trait LowPriorityCollectionTypes extends Generic {
+  def canBuildFormat[CC[X] <: Traversable[X], T](implicit bin : Format[T], cbf: CanBuildFrom[Nothing, T, CC[T]]) : Format[CC[T]] =
+    new LengthEncoded[CC[T], T]{
       def build(length : Int, ts : Iterator[T]) = {
-        val buffer = new mutable.ListBuffer[T];
-        ts.foreach(buffer += (_ : T));
-        buffer.toList;
+        val builder = cbf.apply()
+        builder.sizeHint(length)
+        builder ++= ts
+		  if(ts.hasNext) error("Builder did not consume all input.") // no lazy builders allowed
+        builder.result()
       } 
     }
+}
+
+trait CollectionTypes extends BasicTypes with LowPriorityCollectionTypes {
+  implicit def listFormat[T](implicit bin : Format[T]) : Format[List[T]] = canBuildFormat[List, T]
 
   implicit def arrayFormat[T](implicit fmt : Format[T], mf : scala.reflect.Manifest[T]) : Format[Array[T]] = fmt match{
     case ByteFormat => ByteArrayFormat.asInstanceOf[Format[Array[T]]];
@@ -84,16 +91,14 @@ trait CollectionTypes extends BasicTypes with Generic{
   implicit def immutableSetFormat[T](implicit bin : Format[T]) : Format[immutable.Set[T]] = 
     viaSeq((x : Seq[T]) => immutable.Set(x :_*))
 
-  implicit def immutableSortedSetFormat[S](implicit ord : S => Ordered[S], binS : Format[S]) : Format[immutable.SortedSet[S]] = {
-    import BasicTypes.orderable // 2.7/8 compatibility
+  implicit def immutableSortedSetFormat[S](implicit ord : Ordering[S], binS : Format[S]) : Format[immutable.SortedSet[S]] = {
     viaSeq( (x : Seq[S]) => immutable.TreeSet[S](x :_*))
   }
 
   implicit def immutableMapFormat[S, T](implicit binS : Format[S], binT : Format[T]) : Format[immutable.Map[S, T]] =
     viaSeq( (x : Seq[(S, T)]) => immutable.Map(x :_*));
 
-  implicit def immutableSortedMapFormat[S, T](implicit ord : S => Ordered[S], binS : Format[S], binT : Format[T]) : Format[immutable.SortedMap[S, T]] = {
-    import BasicTypes.orderable // 2.7/8 compatibility
+  implicit def immutableSortedMapFormat[S, T](implicit ord : Ordering[S], binS : Format[S], binT : Format[T]) : Format[immutable.SortedMap[S, T]] = {
     viaSeq( (x : Seq[(S, T)]) => immutable.TreeMap[S, T](x :_*))
   }
 
@@ -160,11 +165,5 @@ trait StandardTypes extends CollectionTypes{
   implicit lazy val XmlFormat : Format[NodeSeq] = new Format[NodeSeq]{
     def reads(in : Input) = XML.loadString(read[String](in)).child;
     def writes(out : Output, elem : NodeSeq) = write(out, <binary>elem</binary>.toString);
-  }
-}
-object BasicTypes {
-  /** 2.7/8 compatibility */
-  implicit def orderable[A](implicit s: A => Ordered[A]): Ordering[A] = new Ordering[A] {
-    def compare(x: A, y: A) = s(x).compare(y)
   }
 }
