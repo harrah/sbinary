@@ -16,7 +16,9 @@ class SBinaryProject(info: ProjectInfo) extends ParentProject(info) with NoPubli
 	}
 	class CoreProject(info: ProjectInfo) extends DefaultProject(info) with TemplateProject
 	{
-		val sc ="org.scala-tools.testing" % "scalacheck_2.8.1" % "1.7" % "test"
+		val sc =
+			if(buildScalaVersion.startsWith("2.9")) "org.scala-tools.testing" % "scalacheck_2.9.0" % "1.9" % "test"
+			else  "org.scala-tools.testing" %% "scalacheck" % "1.7" % "test"
 
 		override def mainResources = super.mainResources +++ "LICENSE"
 	}
