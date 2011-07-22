@@ -3,7 +3,7 @@
 
 object SBinaryProject extends Build
 {
-	lazy val projects = Seq(root, core, treeExample)
+	// lazy val projects = Seq(root, core, treeExample)
 
 	lazy val root = Project("root", file(".")) settings( aux("SBinary Parent") : _*) aggregate(core, treeExample)
 	lazy val core = Project("core", file("core")) settings(coreSettings : _*)
