@@ -12,19 +12,14 @@ object SBinaryProject extends Build
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.0",
-		scalaVersion := "2.9.0",
-		crossScalaVersions += "2.8.1"
+		scalaVersion := "2.10.0-M6"
 	)
 
-	lazy val scalaCheck = libraryDependencies <+= scalaVersion { sv =>
-		val v = if(sv startsWith "2.9") "1.9" else "1.7"
-		"org.scala-tools.testing" %% "scalacheck" % v % "test"
-	}
+	lazy val scalaCheck = libraryDependencies += "org.scalacheck" % "scalacheck_2.10.0-M6" % "1.10.1-SNAPSHOT" % "test"
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
 		scalaCheck,
-		publishTo := Some("Scala Tools Nexus" at "http://nexus.scala-tools.org/content/repositories/releases/"),
-		credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+		resolvers += Resolver.sonatypeRepo("snapshots"),
 		unmanagedResources in Compile <+= baseDirectory map { _ / "LICENSE" }
 	)
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
