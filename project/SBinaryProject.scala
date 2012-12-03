@@ -3,23 +3,20 @@
 
 object SBinaryProject extends Build
 {
-	// lazy val projects = Seq(root, core, treeExample)
-
 	lazy val root = Project("root", file(".")) settings( aux("SBinary Parent") : _*) aggregate(core, treeExample)
 	lazy val core = Project("core", file("core")) settings(coreSettings : _*)
 	lazy val treeExample = Project("examples", file("examples") / "bt") settings( aux("SBinary Tree Example") : _*) dependsOn(core)
 
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
-		version := "0.4.0",
-		scalaVersion := "2.10.0-M6"
+		version := "0.4.1-SNAPSHOT",
+		scalaVersion := "2.10.0-RC3"
 	)
 
-	lazy val scalaCheck = libraryDependencies += "org.scalacheck" % "scalacheck_2.10.0-M6" % "1.10.1-SNAPSHOT" % "test"
+	lazy val scalaCheck = libraryDependencies += "org.scalacheck" % "scalacheck_2.10.0-RC2" % "1.10.0" % "test"
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
 		scalaCheck,
-		resolvers += Resolver.sonatypeRepo("snapshots"),
 		unmanagedResources in Compile <+= baseDirectory map { _ / "LICENSE" }
 	)
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
