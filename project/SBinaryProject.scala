@@ -10,10 +10,10 @@ object SBinaryProject extends Build
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.1-SNAPSHOT",
-		scalaVersion := "2.10.0-RC3"
+		scalaVersion := "2.10.0"
 	)
 
-	lazy val scalaCheck = libraryDependencies += "org.scalacheck" % "scalacheck_2.10.0-RC2" % "1.10.0" % "test"
+	lazy val scalaCheck = libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.0" % "test"
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
 		scalaCheck,
