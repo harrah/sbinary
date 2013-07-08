@@ -8,7 +8,7 @@ object SBinaryProject extends Build
 	lazy val treeExample = Project("examples", file("examples") / "bt") settings( aux("SBinary Tree Example") : _*) dependsOn(core)
 
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
-		organization := "org.scala-sbt",
+		organization := "org.scala-tools.sbinary",
 		version := "0.4.2-SNAPSHOT",
 		scalaVersion := "2.10.2"
 	)
@@ -17,7 +17,7 @@ object SBinaryProject extends Build
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
 		scalaCheck,
-		libraryDependencies ++= scalaXmlDep(scalaVersion.value),
+		libraryDependencies <++= scalaVersion(scalaXmlDep),
 		unmanagedResources in Compile <+= baseDirectory map { _ / "LICENSE" }
 	)
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
@@ -40,11 +40,11 @@ object SBinaryProject extends Build
 	)
 		
 	def fmppConfig(c: Configuration): Seq[Setting[_]] = inConfig(c)(Seq(
-		sourceGenerators <+= fmpp.task,
+		sourceGenerators <+= fmpp.identity,
 		fmpp <<= fmppTask,
 		scalaSource <<= (baseDirectory, configuration) { (base,c) => base / (Defaults.prefix(c.name) + "src") },
 		mappings in packageSrc <<= (managedSources, sourceManaged) map { (srcs, base) => srcs x relativeTo(base) },
-		sources := managedSources.value
+		sources <<= managedSources.identity
 	))
 	lazy val fmppTask =
 		(fullClasspath in fmppConfig, runner in fmpp, unmanagedSources, scalaSource, sourceManaged, fmppOptions, streams) map { (cp, r, sources, srcRoot, output, args, s) =>
