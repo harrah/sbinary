@@ -17,9 +17,13 @@ object SBinaryProject extends Build
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
 		scalaCheck,
+		libraryDependencies ++= scalaXmlDep(scalaVersion.value),
 		unmanagedResources in Compile <+= baseDirectory map { _ / "LICENSE" }
 	)
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
+
+	def scalaXmlDep(scalaV: String): List[ModuleID] =
+		if(scalaV.startsWith("2.11.")) List("org.scala-lang" % "scala-xml" % scalaV) else Nil
 
 	/*** Templating **/
 
