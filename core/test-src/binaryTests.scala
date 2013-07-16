@@ -173,7 +173,7 @@ object FormatTests extends Properties("Formats"){
 
   sealed abstract class BinaryTree;
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
-  case class Leaf extends BinaryTree;
+  case class Leaf() extends BinaryTree;
 
   implicit val eqBinaryTree = allAreEqual[BinaryTree]
 
