@@ -141,7 +141,7 @@ object FormatTests extends Properties("Formats"){
   implicit def arbitraryArray[T](implicit arb : Arbitrary[T], mf: scala.reflect.Manifest[T]) : Arbitrary[Array[T]] =
      Arbitrary(arbitrary[List[T]].map((x : List[T]) => x.toArray[T]));
 
-  implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x : _*){}));
+  implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x.size){}));
 
   implicit def orderedOption[T](opt : Option[T])(implicit ord : Ordering[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
     def compare(that : Option[T]) = (opt, that) match {
