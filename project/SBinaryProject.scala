@@ -10,7 +10,8 @@ object SBinaryProject extends Build
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.2",
-		scalaVersion := "2.10.2",
+		scalaVersion := "2.11.0-M4",
+		crossVersion := CrossVersion.full,
 		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
 	)
 
@@ -47,11 +48,11 @@ object SBinaryProject extends Build
 	)
 		
 	def fmppConfig(c: Configuration): Seq[Setting[_]] = inConfig(c)(Seq(
-		sourceGenerators <+= fmpp.identity,
+		sourceGenerators <+= fmpp(x => x),
 		fmpp <<= fmppTask,
 		scalaSource <<= (baseDirectory, configuration) { (base,c) => base / (Defaults.prefix(c.name) + "src") },
 		mappings in packageSrc <<= (managedSources, sourceManaged) map { (srcs, base) => srcs x relativeTo(base) },
-		sources <<= managedSources.identity
+		sources <<= managedSources(x => x)
 	))
 	lazy val fmppTask =
 		(fullClasspath in fmppConfig, runner in fmpp, unmanagedSources, scalaSource, sourceManaged, fmppOptions, streams) map { (cp, r, sources, srcRoot, output, args, s) =>
