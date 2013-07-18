@@ -9,7 +9,7 @@ object SBinaryProject extends Build
 
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
-		version := "0.4.2-SNAPSHOT",
+		version := "0.4.2",
 		scalaVersion := "2.10.2"
 	)
 
