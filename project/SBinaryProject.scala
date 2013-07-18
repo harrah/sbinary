@@ -11,7 +11,7 @@ object SBinaryProject extends Build
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.2",
 		scalaVersion := "2.10.2",
-		includeTestDependencies := true
+		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
 	)
 
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
