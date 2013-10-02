@@ -30,7 +30,7 @@ object SBinaryProject extends Build
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
 
 	def scalaXmlDep(scalaV: String): List[ModuleID] =
-		if(scalaV.startsWith("2.11.")) List("org.scala-lang" % "scala-xml" % scalaV) else Nil
+		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" % "scala-xml" % scalaV) else Nil
 
 	/*** Templating **/
 
