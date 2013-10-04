@@ -11,13 +11,13 @@ object SBinaryProject extends Build
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.3-SNAPSHOT",
 		scalaVersion := "2.10.2",
-		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
+		includeTestDependencies <<= scalaVersion(sv => sv.startsWith("2.10.") || sv.startsWith("2.11"))
 	)
 
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
 	lazy val scalaCheck = libraryDependencies <++= includeTestDependencies( incl =>
 		if(incl)
-			List("org.scalacheck" %% "scalacheck" % "1.10.0" % "test")
+			List("org.scalacheck" %% "scalacheck" % "1.10.1" % "test")
 		else
 			Nil
 	)
@@ -30,7 +30,7 @@ object SBinaryProject extends Build
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
 
 	def scalaXmlDep(scalaV: String): List[ModuleID] =
-		if(scalaV.startsWith("2.11.")) List("org.scala-lang" % "scala-xml" % scalaV) else Nil
+		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0.0-RC5") else Nil
 
 	/*** Templating **/
 
@@ -47,11 +47,11 @@ object SBinaryProject extends Build
 	)
 		
 	def fmppConfig(c: Configuration): Seq[Setting[_]] = inConfig(c)(Seq(
-		sourceGenerators <+= fmpp.identity,
+		sourceGenerators <+= fmpp,
 		fmpp <<= fmppTask,
 		scalaSource <<= (baseDirectory, configuration) { (base,c) => base / (Defaults.prefix(c.name) + "src") },
 		mappings in packageSrc <<= (managedSources, sourceManaged) map { (srcs, base) => srcs x relativeTo(base) },
-		sources <<= managedSources.identity
+		sources <<= managedSources
 	))
 	lazy val fmppTask =
 		(fullClasspath in fmppConfig, runner in fmpp, unmanagedSources, scalaSource, sourceManaged, fmppOptions, streams) map { (cp, r, sources, srcRoot, output, args, s) =>

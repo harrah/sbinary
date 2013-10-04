@@ -141,7 +141,9 @@ object FormatTests extends Properties("Formats"){
   implicit def arbitraryArray[T](implicit arb : Arbitrary[T], mf: scala.reflect.Manifest[T]) : Arbitrary[Array[T]] =
      Arbitrary(arbitrary[List[T]].map((x : List[T]) => x.toArray[T]));
 
-  implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(x => new Enumeration(x : _*){}));
+  def enum(names: Seq[String]): Enumeration = new Enumeration { names foreach { n => Value(n) } }
+
+  implicit val arbitraryEnumeration : Arbitrary[Enumeration] = Arbitrary(arbitrary[List[String]].map(enum));
 
   implicit def orderedOption[T](opt : Option[T])(implicit ord : Ordering[T]) : Ordered[Option[T]] = new Ordered[Option[T]]{
     def compare(that : Option[T]) = (opt, that) match {
@@ -173,7 +175,7 @@ object FormatTests extends Properties("Formats"){
 
   sealed abstract class BinaryTree;
   case class Split(left : BinaryTree, right : BinaryTree) extends BinaryTree;
-  case class Leaf extends BinaryTree;
+  case class Leaf() extends BinaryTree;
 
   implicit val eqBinaryTree = allAreEqual[BinaryTree]
 
