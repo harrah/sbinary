@@ -9,29 +9,35 @@ object SBinaryProject extends Build
 
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
-		version := "0.4.2",
-		scalaVersion := "2.11.0-M4",
+		version := "0.4.3-SNAPSHOT",
+		scalaVersion := "2.11.0-M6",
 		crossVersion := CrossVersion.full,
+		scalaXmlVersion := "1.0.0-RC6",
+		scalaParserCombinatorsVersion := "1.0.0-RC4",
+		scalaCheckVersion := "1.10.1",
 		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
 	)
 
+	lazy val scalaXmlVersion = SettingKey[String]("scala-xml-version")
+	lazy val scalaParserCombinatorsVersion = SettingKey[String]("scala-parser-combinators-version")
+	lazy val scalaCheckVersion = SettingKey[String]("scalacheck-version")
+
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
-	lazy val scalaCheck = libraryDependencies <++= includeTestDependencies( incl =>
-		if(incl)
-			List("org.scalacheck" %% "scalacheck" % "1.10.0" % "test")
-		else
-			Nil
-	)
+
 	lazy val coreSettings = commonSettings ++ template ++ Seq(
 		name := "SBinary",
-		scalaCheck,
-		libraryDependencies <++= scalaVersion(scalaXmlDep),
+		libraryDependencies ++= (
+			if(includeTestDependencies.value) Seq(
+				"org.scalacheck" %% "scalacheck" % scalaCheckVersion.value % "test" intransitive)
+			else Nil ),
+		libraryDependencies ++= (
+			if(scalaVersion.value.startsWith("2.11.")) Seq(
+				"org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion.value,
+				"org.scala-lang.modules" %% "scala-parser-combinators" % scalaParserCombinatorsVersion.value)
+			else Nil ),
 		unmanagedResources in Compile <+= baseDirectory map { _ / "LICENSE" }
 	)
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
-
-	def scalaXmlDep(scalaV: String): List[ModuleID] =
-		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0-RC2") else Nil
 
 	/*** Templating **/
 
