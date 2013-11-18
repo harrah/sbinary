@@ -15,6 +15,7 @@ object SBinaryProject extends Build
 		scalaXmlVersion := "1.0.0-RC6",
 		scalaParserCombinatorsVersion := "1.0.0-RC4",
 		scalaCheckVersion := "1.10.1",
+		resolvers += Resolver.sonatypeRepo("snapshots"), // to allow compiling against snapshot versions of Scala
 		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
 	)
 
