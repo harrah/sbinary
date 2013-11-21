@@ -10,11 +10,11 @@ object SBinaryProject extends Build
 	lazy val commonSettings: Seq[Setting[_]] = Seq(
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.3-SNAPSHOT",
-		scalaVersion := "2.11.0-M6",
+		scalaVersion := "2.11.0-M7",
 		crossVersion := CrossVersion.full,
-		scalaXmlVersion := "1.0.0-RC6",
-		scalaParserCombinatorsVersion := "1.0.0-RC4",
-		scalaCheckVersion := "1.10.1",
+		scalaXmlVersion := "1.0.0-RC7",
+		scalaParserCombinatorsVersion := "1.0.0-RC5",
+		scalaCheckVersion := "1.11.1",
 		resolvers += Resolver.sonatypeRepo("snapshots"), // to allow compiling against snapshot versions of Scala
 		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
 	)
