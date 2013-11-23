@@ -16,7 +16,7 @@ object SBinaryProject extends Build
 		scalaParserCombinatorsVersion := "1.0.0-RC5",
 		scalaCheckVersion := "1.11.1",
 		resolvers += Resolver.sonatypeRepo("snapshots"), // to allow compiling against snapshot versions of Scala
-		includeTestDependencies <<= scalaVersion(_.startsWith("2.10."))
+		includeTestDependencies := true
 	)
 
 	lazy val scalaXmlVersion = SettingKey[String]("scala-xml-version")
