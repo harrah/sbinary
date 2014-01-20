@@ -17,7 +17,7 @@ object SBinaryProject extends Build
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
 	lazy val scalaCheck = libraryDependencies <++= includeTestDependencies( incl =>
 		if(incl)
-			List("org.scalacheck" %% "scalacheck" % "1.10.1" % "test")
+			List("org.scalacheck" %% "scalacheck" % "1.11.1" % "test")
 		else
 			Nil
 	)
@@ -30,7 +30,7 @@ object SBinaryProject extends Build
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
 
 	def scalaXmlDep(scalaV: String): List[ModuleID] =
-		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0.0-RC5") else Nil
+		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0.0-RC7") else Nil
 
 	/*** Templating **/
 
