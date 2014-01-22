@@ -17,7 +17,7 @@ object SBinaryProject extends Build
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
 	lazy val scalaCheck = libraryDependencies <++= includeTestDependencies( incl =>
 		if(incl)
-			List("org.scalacheck" %% "scalacheck" % "1.11.1" % "test")
+			List("org.scalacheck" %% "scalacheck" % "1.11.3" % "test")
 		else
 			Nil
 	)
