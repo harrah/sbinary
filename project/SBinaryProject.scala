@@ -11,7 +11,7 @@ object SBinaryProject extends Build
 		organization := "org.scala-tools.sbinary",
 		version := "0.4.3-SNAPSHOT",
 		scalaVersion := "2.10.2",
-		includeTestDependencies <<= scalaVersion(sv => sv.startsWith("2.10.") || sv.startsWith("2.11"))
+		includeTestDependencies <<= scalaVersion(sv => sv.startsWith("2.10.") || sv.startsWith("2.11.") || sv.startsWith("2.12."))
 	)
 
 	lazy val includeTestDependencies = SettingKey[Boolean]("include-test-dependencies")
@@ -30,7 +30,7 @@ object SBinaryProject extends Build
 	def aux(nameString: String) = commonSettings ++ Seq( publish := (), name := nameString )
 
 	def scalaXmlDep(scalaV: String): List[ModuleID] =
-		if(scalaV.startsWith("2.11.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0.1") else Nil
+		if(scalaV.startsWith("2.11.") || scalaV.startsWith("2.12.")) List("org.scala-lang.modules" %% "scala-xml" % "1.0.2") else Nil
 
 	/*** Templating **/
 
